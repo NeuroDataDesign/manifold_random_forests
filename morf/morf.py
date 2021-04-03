@@ -1,6 +1,6 @@
 from sklearn.ensemble._forest import ForestClassifier
 
-from .morf_tree import Conv2DObliqueTreeClassifier
+from .tree.morf_tree import Conv2DObliqueTreeClassifier
 
 
 class Conv2DObliqueForestClassifier(ForestClassifier):

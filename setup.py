@@ -7,9 +7,11 @@ ext_modules = [
         "split",
         ["tree/split.pyx"],
         extra_compile_args=[
+        "-Xpreprocessor",  # comment out if using fopenmp
             "-fopenmp",
         ],
         extra_link_args=[
+        "-Xpreprocessor",  # comment out if using fopenmp
             "-fopenmp"
         ],
         language="c++",
