@@ -5,12 +5,12 @@ from Cython.Build import cythonize
 ext_modules = [
     Extension(
         "split",
-        ["tree/split.pyx"],
+        ["oblique_forests/split.pyx"],
         extra_compile_args=[
-            "-fopenmp",
+            "-O3",
         ],
         extra_link_args=[
-            "-fopenmp"
+            "-O3"
         ],
         language="c++",
     )
@@ -20,14 +20,14 @@ with open("requirements.txt", mode="r", encoding="utf8") as f:
     REQUIREMENTS=f.read()
 
 setup(
-    name="manifold_random_forests",
-    version=0.01,
+    name="oblique_forests",
+    version=0.1,
     author="Adam Li, Chester Huynh, Parth Vora",
     # skipping author email, maintainer, maintainer email,
     description="A package to implement and extend SPORF and MORF",
     license="MIT",
     install_requirements=REQUIREMENTS,
-    packages=find_packages(exclude=["tree/tests/*"]),
+    packages=find_packages(exclude=["oblique_forests/tests/*"]),
     include_package_data=True,
     ext_modules=cythonize(ext_modules),
 )
