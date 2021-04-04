@@ -1,6 +1,6 @@
 import os
 
-from morf._build_utils import maybe_cythonize_extensions
+from oblique_forests._build_utils import maybe_cythonize_extensions
 
 
 def configuration(parent_package='', top_path=None):
@@ -11,7 +11,7 @@ def configuration(parent_package='', top_path=None):
     if os.name == 'posix':
         libraries.append('m')
 
-    config = Configuration('morf', parent_package, top_path)
+    config = Configuration('oblique_forests', parent_package, top_path)
 
     # submodules which have their own setup.py
     config.add_subpackage('tree')
@@ -19,8 +19,6 @@ def configuration(parent_package='', top_path=None):
     # add the test directory
     # config.add_subpackage('tests')
 
-    print('inside here....', top_path)
-    print(config)
     maybe_cythonize_extensions(top_path, config)
 
     return config

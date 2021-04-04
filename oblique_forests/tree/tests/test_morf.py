@@ -9,7 +9,7 @@ import pytest
 from sklearn import datasets, metrics
 from sklearn.utils.validation import check_random_state
 
-from proglearn.morf import Conv2DSplitter
+from oblique_forests.tree.morf_split import Conv2DSplitter
 
 # toy sample
 X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1]]
@@ -34,6 +34,7 @@ boston.target = boston.target[perm]
 
 
 def test_convolutional_splitter():
+    random_state = 12345
     n = 50
     height = 40
     d = 40

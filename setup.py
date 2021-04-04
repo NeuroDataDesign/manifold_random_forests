@@ -28,7 +28,7 @@ DISTNAME = 'manifold_random_forests'
 DESCRIPTION = 'A set of python modules for machine learning and data mining'
 with open('README.md') as f:
     LONG_DESCRIPTION = f.read()
-MAINTAINER = 'nd'
+MAINTAINER = 'Adam Li, Chester Huynh, Parth Vora'
 MAINTAINER_EMAIL = ''
 URL = ''
 DOWNLOAD_URL = ''
@@ -37,9 +37,9 @@ PROJECT_URLS = {}
 
 # We can actually import a restricted version of sklearn that
 # does not need the compiled code
-import morf
+import oblique_forests
 
-VERSION = morf.__version__
+VERSION = oblique_forests.__version__
 
 if platform.python_implementation() == 'PyPy':
     SCIPY_MIN_VERSION = '1.1.0'
@@ -91,7 +91,7 @@ class CleanCommand(Clean):
             print('Will remove generated .c files')
         if os.path.exists('build'):
             shutil.rmtree('build')
-        for dirpath, dirnames, filenames in os.walk('morf'):
+        for dirpath, dirnames, filenames in os.walk('oblique_forests'):
             for filename in filenames:
                 if any(filename.endswith(suffix) for suffix in
                        (".so", ".pyd", ".dll", ".pyc")):
@@ -117,7 +117,7 @@ try:
 
     class build_ext_subclass(build_ext):
         def build_extensions(self):
-            from morf._build_utils.openmp_helpers import get_openmp_flag
+            from oblique_forests._build_utils.openmp_helpers import get_openmp_flag
 
             if not os.getenv('SKLEARN_NO_OPENMP'):
                 openmp_flag = get_openmp_flag(self.compiler)
@@ -165,7 +165,7 @@ def configuration(parent_package='', top_path=None):
                        delegate_options_to_subpackages=True,
                        quiet=True)
 
-    config.add_subpackage('morf')
+    config.add_subpackage('oblique_forests')
 
     return config
 

@@ -4,7 +4,7 @@ from numpy.testing import (
         assert_allclose
 )
 import pytest
-from split import BaseObliqueSplitter as BOS
+from oblique_forests.tree._split import BaseObliqueSplitter as BOS
 
 class TestBaseSplitter:
 

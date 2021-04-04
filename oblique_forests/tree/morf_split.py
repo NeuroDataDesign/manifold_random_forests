@@ -7,7 +7,7 @@ from sklearn.tree import _tree
 from sklearn.utils import check_random_state
 
 from ._split import BaseObliqueSplitter
-from .tree import (ObliqueSplitter, ObliqueTree,
+from .oblique_tree import (ObliqueSplitter, ObliqueTree,
                                     ObliqueTreeClassifier)
 
 

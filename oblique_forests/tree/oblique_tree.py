@@ -1,260 +1,10 @@
-"""
-Main Author: Will LeVine 
-Corresponding Email: levinewill@icloud.com
-"""
-import keras
 import numpy as np
 import numpy.random as rng
-from itertools import product
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
-from sklearn.random_projection import SparseRandomProjection
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
-from .base import BaseTransformer
-
 from ._split import BaseObliqueSplitter
-
-class NeuralClassificationTransformer(BaseTransformer):
-    """
-    A class used to transform data from a category to a specialized representation.
-
-    Parameters
-    ----------
-    network : object
-        A neural network used in the classification transformer.
-
-    euclidean_layer_idx : int
-        An integer to represent the final layer of the transformer.
-
-    optimizer : str or keras.optimizers instance
-        An optimizer used when compiling the neural network.
-
-    loss : str, default="categorical_crossentropy"
-        A loss function used when compiling the neural network.
-
-    pretrained : bool, default=False
-        A boolean used to identify if the network is pretrained.
-
-    compile_kwargs : dict, default={"metrics": ["acc"]}
-        A dictionary containing metrics for judging network performance.
-
-    fit_kwargs : dict, default={
-                "epochs": 100,
-                "callbacks": [keras.callbacks.EarlyStopping(patience=5, monitor="val_acc")],
-                "verbose": False,
-                "validation_split": 0.33,
-            },
-        A dictionary to hold epochs, callbacks, verbose, and validation split for the network.
-
-    Attributes
-    ----------
-    encoder_ : object
-        A Keras model with inputs and outputs based on the network attribute.
-        Output layers are determined by the euclidean_layer_idx parameter.
-    """
-
-    def __init__(
-        self,
-        network,
-        euclidean_layer_idx,
-        optimizer,
-        loss="categorical_crossentropy",
-        pretrained=False,
-        compile_kwargs={"metrics": ["acc"]},
-        fit_kwargs={
-            "epochs": 100,
-            "callbacks": [keras.callbacks.EarlyStopping(patience=5, monitor="val_acc")],
-            "verbose": False,
-            "validation_split": 0.33,
-        },
-    ):
-        self.network = keras.models.clone_model(network)
-        self.encoder_ = keras.models.Model(
-            inputs=self.network.inputs,
-            outputs=self.network.layers[euclidean_layer_idx].output,
-        )
-        self.pretrained = pretrained
-        self.optimizer = optimizer
-        self.loss = loss
-        self.compile_kwargs = compile_kwargs
-        self.fit_kwargs = fit_kwargs
-
-    def fit(self, X, y):
-        """
-        Fits the transformer to data X with labels y.
-
-        Parameters
-        ----------
-        X : ndarray
-            Input data matrix.
-        y : ndarray
-            Output (i.e. response data matrix).
-
-        Returns
-        -------
-        self : NeuralClassificationTransformer
-            The object itself.
-        """
-        check_X_y(X, y)
-        _, y = np.unique(y, return_inverse=True)
-
-        # more typechecking
-        self.network.compile(
-            loss=self.loss, optimizer=self.optimizer, **self.compile_kwargs
-        )
-
-        self.network.fit(X, keras.utils.to_categorical(y), **self.fit_kwargs)
-
-        return self
-
-    def transform(self, X):
-        """
-        Performs inference using the transformer.
-
-        Parameters
-        ----------
-        X : ndarray
-            Input data matrix.
-
-        Returns
-        -------
-        X_transformed : ndarray
-            The transformed input.
-
-        Raises
-        ------
-        NotFittedError
-            When the model is not fitted.
-        """
-        check_is_fitted(self)
-        check_array(X)
-        return self.encoder_.predict(X)
-
-
-class TreeClassificationTransformer(BaseTransformer):
-    """
-    A class used to transform data from a category to a specialized representation.
-
-    Parameters
-    ----------
-    kwargs : dict, default={}
-        A dictionary to contain parameters of the tree.
-
-    Attributes
-    ----------
-    transformer : sklearn.tree.DecisionTreeClassifier
-        an internal sklearn DecisionTreeClassifier
-    """
-
-    def __init__(self, kwargs={}):
-        self.kwargs = kwargs
-
-    def fit(self, X, y):
-        """
-        Fits the transformer to data X with labels y.
-
-        Parameters
-        ----------
-        X : ndarray
-            Input data matrix.
-        y : ndarray
-            Output (i.e. response data matrix).
-
-        Returns
-        -------
-        self : TreeClassificationTransformer
-            The object itself.
-        """
-        X, y = check_X_y(X, y)
-        self.transformer_ = DecisionTreeClassifier(**self.kwargs).fit(X, y)
-        return self
-
-    def transform(self, X):
-        """
-        Performs inference using the transformer.
-
-        Parameters
-        ----------
-        X : ndarray
-            Input data matrix.
-
-        Returns
-        -------
-        X_transformed : ndarray
-            The transformed input.
-
-        Raises
-        ------
-        NotFittedError
-            When the model is not fitted.
-        """
-        check_is_fitted(self)
-        X = check_array(X)
-        return self.transformer_.apply(X)
-
-
-class ObliqueTreeClassificationTransformer(BaseTransformer):
-    """
-    A class used to transform data from a category to a specialized representation.
-
-    Parameters
-    ----------
-    kwargs : dict, default={}
-        A dictionary to contain parameters of the tree.
-
-    Attributes
-    ----------
-    transformer : ObliqueTreeClassifier
-        an sklearn compliant oblique decision tree (SPORF)
-    """
-
-    def __init__(self, kwargs={}):
-        self.kwargs = kwargs
-
-    def fit(self, X, y):
-        """
-        Fits the transformer to data X with labels y.
-
-        Parameters
-        ----------
-        X : ndarray
-            Input data matrix.
-        y : ndarray
-            Output (i.e. response data matrix).
-
-        Returns
-        -------
-        self : TreeClassificationTransformer
-            The object itself.
-        """
-        X, y = check_X_y(X, y)
-        self.transformer_ = ObliqueTreeClassifier(**self.kwargs).fit(X, y)
-        return self
-
-    def transform(self, X):
-        """
-        Performs inference using the transformer.
-
-        Parameters
-        ----------
-        X : ndarray
-            Input data matrix.
-
-        Returns
-        -------
-        X_transformed : ndarray
-            The transformed input.
-
-        Raises
-        ------
-        NotFittedError
-            When the model is not fitted.
-        """
-        check_is_fitted(self)
-        X = check_array(X)
-        return self.transformer_.apply(X)
 
 
 """
@@ -364,7 +114,7 @@ class ObliqueSplitter:
         Determines the best possible split for the given set of samples.
     """
 
-    def __init__(self, X, y, max_features, feature_combinations, random_state, n_jobs):
+    def __init__(self, X, y, max_features, feature_combinations, random_state):
 
         self.X = np.array(X, dtype=np.float64)
 
@@ -400,8 +150,6 @@ class ObliqueSplitter:
 
         # Temporary debugging parameter, turns off oblique splits
         self.debug = False
-
-        self.n_jobs = n_jobs
 
     def sample_proj_mat(self, sample_inds):
         """
@@ -656,6 +404,11 @@ class ObliqueTree:
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.max_depth = max_depth
+        
+        if self.max_depth is None:
+            self.max_depth = np.inf
+
+
         self.min_impurity_split = min_impurity_split
         self.min_impurity_decrease = min_impurity_decrease
 
@@ -843,7 +596,7 @@ class ObliqueTree:
             if cur.depth > self.depth:
                 self.depth = cur.depth
 
-    def predict(self, X):
+    def predict(self, X, check_input=True):
         """
         Predicts final nodes of samples given.
 
@@ -925,7 +678,7 @@ class ObliqueTreeClassifier(BaseEstimator):
     def __init__(
         self,
         *,
-        max_depth=np.inf,
+        max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
         random_state=None,
@@ -951,11 +704,10 @@ class ObliqueTreeClassifier(BaseEstimator):
         # Max features
         self.max_features = max_features
 
-        self.n_jobs=n_jobs
-
         self.n_classes=None
 
-    def fit(self, X, y):
+    # TODO: sklearn params do nothing
+    def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
         """
         Predicts final nodes of samples given.
 
@@ -973,7 +725,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         """
 
         splitter = ObliqueSplitter(
-            X, y, self.max_features, self.feature_combinations, self.random_state, self.n_jobs
+            X, y, self.max_features, self.feature_combinations, self.random_state
         )
         self.n_classes = splitter.n_classes
 
@@ -986,6 +738,8 @@ class ObliqueTreeClassifier(BaseEstimator):
             self.min_impurity_decrease,
         )
         self.tree.build()
+
+        print("ok")
 
         return self
 
@@ -1007,7 +761,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes = self.tree.predict(X).astype(int)
         return pred_nodes
 
-    def predict(self, X):
+    def predict(self, X, check_input=True):
         """
         Determines final label predictions for each sample in the test data.
 
@@ -1032,7 +786,7 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         return preds
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, check_input=True):
         """
         Determines probabilities of the final label predictions for each sample in the test data.
 
@@ -1057,7 +811,7 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         return preds
 
-    def predict_log_proba(self, X):
+    def predict_log_proba(self, X, check_input=True):
         """
         Determines log of the probabilities of the final label predictions for each sample in the test data.
 
@@ -1075,4 +829,6 @@ class ObliqueTreeClassifier(BaseEstimator):
         proba = self.predict_proba(X)
         return np.log(proba)
 
-
+    # TODO: Actually do this function
+    def _validate_X_predict(self, X, check_input=True):
+        return X

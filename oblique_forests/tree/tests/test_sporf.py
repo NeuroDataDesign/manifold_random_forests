@@ -8,7 +8,7 @@ from numpy.testing import (
         )
 
 import pytest
-from proglearn.transformers import ObliqueTreeClassifier as OTC
+from oblique_forests.tree.oblique_tree import ObliqueTreeClassifier as OTC
 
 from sklearn import datasets
 from sklearn.metrics import accuracy_score
