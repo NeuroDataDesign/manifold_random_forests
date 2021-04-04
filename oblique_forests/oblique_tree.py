@@ -406,6 +406,11 @@ class ObliqueTree:
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.max_depth = max_depth
+        
+        if self.max_depth is None:
+            self.max_depth = np.inf
+
+
         self.min_impurity_split = min_impurity_split
         self.min_impurity_decrease = min_impurity_decrease
 
@@ -675,7 +680,7 @@ class ObliqueTreeClassifier(BaseEstimator):
     def __init__(
         self,
         *,
-        max_depth=np.inf,
+        max_depth=None,
         min_samples_split=2,
         min_samples_leaf=1,
         random_state=None,
@@ -705,7 +710,8 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         self.n_classes=None
 
-    def fit(self, X, y):
+    # TODO: sklearn params do nothing
+    def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
         """
         Predicts final nodes of samples given.
 
