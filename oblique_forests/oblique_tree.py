@@ -743,6 +743,8 @@ class ObliqueTreeClassifier(BaseEstimator):
         )
         self.tree.build()
 
+        print("ok")
+
         return self
 
     def apply(self, X):

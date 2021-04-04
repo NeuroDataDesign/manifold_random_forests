@@ -1,6 +1,6 @@
 from sklearn.ensemble._forest import ForestClassifier
 
-from oblique_tree import ObliqueTreeClassifier
+from .oblique_tree import ObliqueTreeClassifier
 
 
 class ObliqueForestClassifier(ForestClassifier):
