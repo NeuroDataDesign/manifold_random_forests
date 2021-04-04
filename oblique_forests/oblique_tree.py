@@ -598,7 +598,7 @@ class ObliqueTree:
             if cur.depth > self.depth:
                 self.depth = cur.depth
 
-    def predict(self, X):
+    def predict(self, X, check_input=True):
         """
         Predicts final nodes of samples given.
 
@@ -765,7 +765,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes = self.tree.predict(X).astype(int)
         return pred_nodes
 
-    def predict(self, X):
+    def predict(self, X, check_input=True):
         """
         Determines final label predictions for each sample in the test data.
 
@@ -790,7 +790,7 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         return preds
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, check_input=True):
         """
         Determines probabilities of the final label predictions for each sample in the test data.
 
