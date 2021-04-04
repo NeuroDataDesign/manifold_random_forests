@@ -815,7 +815,7 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         return preds
 
-    def predict_log_proba(self, X):
+    def predict_log_proba(self, X, check_input=True):
         """
         Determines log of the probabilities of the final label predictions for each sample in the test data.
 
@@ -833,4 +833,6 @@ class ObliqueTreeClassifier(BaseEstimator):
         proba = self.predict_proba(X)
         return np.log(proba)
 
-
+    # TODO: Actually do this function
+    def _validate_X_predict(self, X, check_input=True):
+        return X
