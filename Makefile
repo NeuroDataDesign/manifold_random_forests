@@ -14,6 +14,7 @@ clean-so:
 	find . -name "*.pyd" | xargs rm -f
 
 clean-build:
+	$(PYTHON) setup.py clean
 	rm -rf _build
 	rm -rf _build
 	rm -rf dist
@@ -22,6 +23,9 @@ clean-build:
 clean-ctags:
 	rm -f tags
 	rm junit-results.xml
+
+clean-ctags:
+	rm -f tags
 
 clean: clean-build clean-so clean-ctags
 

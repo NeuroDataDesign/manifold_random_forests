@@ -12,6 +12,18 @@ Original code from SPORF to cythonize for the intentions of sklearn PR.
 
 Installation
 ------------
+Using conda instructions from sklearn:
+
+    conda create -n sklearn-dev -c conda-forge python numpy scipy cython \
+    joblib threadpoolctl pytest compilers llvm-openmp
+
+    conda activate sklearn-dev
+    pipenv install --dev --skip-lock
+    
+    make clean
+
+    make build-dev
+
 Installation is RECOMMENDED via a python virtual environment, using ``pipenv``. The package is hosted on ``pypi``, which
 can be installed via pip, or pipenv.
 
