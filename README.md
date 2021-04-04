@@ -18,8 +18,14 @@ Using conda instructions from sklearn:
     joblib threadpoolctl pytest compilers llvm-openmp
 
     conda activate sklearn-dev
-    pipenv install --dev --skip-lock
     
+    # install files from Pipfile
+    pip install pipenv 
+    pipenv install --dev --skip-lock
+
+    # or install via requirements.txt
+    pip install -r requirements.txt
+
     make clean
 
     make build-dev

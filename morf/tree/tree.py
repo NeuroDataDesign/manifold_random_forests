@@ -4,9 +4,7 @@ from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
-from ..base import BaseTransformer
-
-from split import BaseObliqueSplitter
+from ._split import BaseObliqueSplitter
 
 
 """

@@ -119,7 +119,7 @@ try:
 
     class build_ext_subclass(build_ext):
         def build_extensions(self):
-            from sklearn._build_utils.openmp_helpers import get_openmp_flag
+            from morf._build_utils.openmp_helpers import get_openmp_flag
 
             if not os.getenv('SKLEARN_NO_OPENMP'):
                 openmp_flag = get_openmp_flag(self.compiler)
