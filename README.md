@@ -30,21 +30,12 @@ Using conda instructions from sklearn:
 
     make build-dev
 
-Installation is RECOMMENDED via a python virtual environment, using ``pipenv``. The package is hosted on ``pypi``, which
-can be installed via pip, or pipenv.
+To install the necessary development packages, run:
 
-    python3.8 -m venv .venv
-    pip install --upgrade pip
-    pip install --upgrade pipenv
+    pip install -r test_requirements.txt
 
-    # activate virtual environment
-    pipenv shell
-
-    # install packages using pipenv
-    pipenv install --dev --skip-lock
-
-    # if that doesn't work, just use the requirements.txt file
-    pip install -r requirements.txt
+    # check code style
+    make pep
 
 then use Makefile recipe to build dev version. You'll need Cython installed.
 
