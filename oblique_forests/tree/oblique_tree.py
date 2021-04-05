@@ -249,7 +249,6 @@ class ObliqueSplitter:
         proj_X = np.array(proj_X, dtype=np.float64)
         y_sample = np.array(y_sample, dtype=np.float64)
         sample_inds = np.array(sample_inds, dtype=np.intc)
-        # print(proj_X.shape, y_sample.shape, sample_inds.shape)
 
         # Call cython splitter 
         (feature, 
@@ -738,8 +737,6 @@ class ObliqueTreeClassifier(BaseEstimator):
             self.min_impurity_decrease,
         )
         self.tree.build()
-
-        print("ok")
 
         return self
 
