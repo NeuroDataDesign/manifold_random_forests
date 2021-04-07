@@ -3,6 +3,7 @@ import numpy.random as rng
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from sklearn.utils.fixes import _joblib_parallel_args
 
 from ._split import BaseObliqueSplitter
 
@@ -628,6 +629,31 @@ class ObliqueTree:
 
         return predictions
 
+    def compute_feature_importances(self, normalize=True):
+        """
+        Computes the importance of each feature (aka variable).
+
+        Returns
+        -------
+        feature_importances_ : ndarray of shape (n_features,)
+            Normalized importance (counts) of each feature.
+        """
+        # XXX: Still raises error even when OTC instance is fitted
+        # check_is_fitted(self)
+        importances = np.zeros((self.splitter.n_features,))
+        
+        # Count number of times a feature is used in a projection across all nodes
+        for node in self.nodes:
+            importances[np.nonzero(node.proj_vec)] += 1
+
+        if normalize:
+            normalizer = np.sum(importances)
+            if normalizer > 0.0:
+                # Avoid dividing by zero (e.g., when root is pure)
+                importances /= normalizer
+
+        return importances
+
 
 # --------------------------------------------------------------------------
 
@@ -829,3 +855,20 @@ class ObliqueTreeClassifier(BaseEstimator):
     # TODO: Actually do this function
     def _validate_X_predict(self, X, check_input=True):
         return X
+
+    @property
+    def feature_importances_(self):
+        """
+        Return the feature importances.
+        The importance of a feature is computed as the number of times it
+        is used in a projection across all split nodes
+
+        Returns
+        -------
+        feature_importances_ : ndarray of shape (n_features,)
+            Array of count-based feature importances.
+        """
+        # XXX: Still raises error even when OTC instance is fitted
+        # check_is_fitted(self)
+
+        return self.tree.compute_feature_importances()

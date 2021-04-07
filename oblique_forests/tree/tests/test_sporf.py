@@ -9,6 +9,7 @@ from numpy.testing import (
 
 import pytest
 from oblique_forests.tree.oblique_tree import ObliqueTreeClassifier as OTC
+from oblique_forests.sporf import ObliqueForestClassifier as OFC
 
 from sklearn import datasets
 from sklearn.metrics import accuracy_score
@@ -148,5 +149,15 @@ def test_pure_set():
     clf.fit(X, y)
     assert_array_equal(clf.predict(X), y)
 
+def test_tree_feature_importances():
+    
+    clf = OFC(random_state=0)
 
+    clf.fit(diabetes.data, diabetes.target)
+    importances = clf.feature_importances_
 
+def test_forest_feature_importances():
+    clf = OFC(random_state=0)
+
+    clf.fit(diabetes.data, diabetes.target)
+    importances = clf.feature_importances_

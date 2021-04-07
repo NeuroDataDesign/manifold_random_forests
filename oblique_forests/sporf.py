@@ -1,4 +1,8 @@
+import numpy as np
+from joblib import Parallel, delayed
 from sklearn.ensemble._forest import ForestClassifier
+from sklearn.utils.validation import check_is_fitted
+from sklearn.utils.fixes import _joblib_parallel_args
 
 from .tree.oblique_tree import ObliqueTreeClassifier
 
@@ -59,4 +63,33 @@ class ObliqueForestClassifier(ForestClassifier):
         # self.min_impurity_decrease = min_impurity_decrease
         # self.min_impurity_split = min_impurity_split
 
-    
+    @property
+    def feature_importances_(self):
+        """
+        Computes the importance of every unique feature used to make a split
+        in the Oblique Tree.
+
+        Parameters
+        ----------
+        normalize : bool, default=True
+            A boolean to indicate whether to normalize feature importances.
+
+        Returns
+        -------
+        importances : array of shape [n_features]
+            Array of count-based feature importances.
+        """
+        check_is_fitted(self)
+
+        all_importances = Parallel(n_jobs=self.n_jobs,
+                                   **_joblib_parallel_args(prefer='threads'))(
+            delayed(getattr)(tree, 'feature_importances_')
+            for tree in self.estimators_ if tree.tree.node_count > 1)
+
+        if not all_importances:
+            return np.zeros(self.n_features_, dtype=np.float64)
+
+        all_importances = np.mean(all_importances,
+                                  axis=0, dtype=np.float64)
+        return all_importances / np.sum(all_importances)
+
