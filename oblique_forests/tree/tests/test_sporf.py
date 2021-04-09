@@ -149,15 +149,37 @@ def test_pure_set():
     clf.fit(X, y)
     assert_array_equal(clf.predict(X), y)
 
-def test_tree_feature_importances():
-    
-    clf = OFC(random_state=0)
+def test_importances():
+    # Check variable importances.
+    X, y = datasets.make_classification(n_samples=5000,
+                                        n_features=10,
+                                        n_informative=3,
+                                        n_redundant=0,
+                                        n_repeated=0,
+                                        shuffle=False,
+                                        random_state=0)
 
-    clf.fit(diabetes.data, diabetes.target)
+    clf = OTC(random_state=0)
+
+    clf.fit(X, y)
     importances = clf.feature_importances_
+    n_important = np.sum(importances > 0.1)
 
-def test_forest_feature_importances():
-    clf = OFC(random_state=0)
+    assert importances.shape[0] == 10, "Failed with SPORF"
+    assert n_important == 3, "Failed with SPORF"
 
-    clf.fit(diabetes.data, diabetes.target)
-    importances = clf.feature_importances_
+    # Check on iris that importances are the same for all builders
+    clf = OTC(random_state=0)
+    clf.fit(iris.data, iris.target)
+    clf2 = OTC(random_state=0, max_leaf_nodes=len(iris.data))
+    clf2.fit(iris.data, iris.target)
+
+    assert_array_equal(clf.feature_importances_,
+                       clf2.feature_importances_)
+
+def test_importances_raises():
+    # XXX: check_is_fitted does not work for our trees yet
+    # Check if variable importance before fit raises ValueError.
+    clf = OTC(random_state=0)
+    with pytest.raises(ValueError):
+        getattr(clf, 'feature_importances_')
