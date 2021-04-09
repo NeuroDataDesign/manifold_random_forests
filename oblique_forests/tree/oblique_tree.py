@@ -728,6 +728,7 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         # Max features
         self.max_features = max_features
+        self.n_jobs = n_jobs
 
         self.n_classes=None
 
@@ -868,7 +869,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         feature_importances_ : ndarray of shape (n_features,)
             Array of count-based feature importances.
         """
-        # XXX: Still raises error even when OTC instance is fitted
+        # XXX: check_is_fitted raises error even when OTC instance is fitted
         # check_is_fitted(self)
 
         return self.tree.compute_feature_importances()

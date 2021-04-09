@@ -67,7 +67,7 @@ class ObliqueForestClassifier(ForestClassifier):
     def feature_importances_(self):
         """
         Computes the importance of every unique feature used to make a split
-        in the Oblique Tree.
+        in each tree of the forest.
 
         Parameters
         ----------
