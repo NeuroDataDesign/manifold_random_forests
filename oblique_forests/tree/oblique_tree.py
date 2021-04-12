@@ -704,6 +704,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         self.max_features = max_features
 
         self.n_classes=None
+        self.n_jobs = n_jobs
 
     # TODO: sklearn params do nothing
     def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
