@@ -4,7 +4,7 @@ from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
-from split import BaseObliqueSplitter
+from ._split import BaseObliqueSplitter
 
 
 """
@@ -114,7 +114,7 @@ class ObliqueSplitter:
         Determines the best possible split for the given set of samples.
     """
 
-    def __init__(self, X, y, max_features, feature_combinations, random_state, n_jobs):
+    def __init__(self, X, y, max_features, feature_combinations, random_state):
 
         self.X = np.array(X, dtype=np.float64)
 
@@ -150,8 +150,6 @@ class ObliqueSplitter:
 
         # Temporary debugging parameter, turns off oblique splits
         self.debug = False
-
-        self.n_jobs = n_jobs
 
     def sample_proj_mat(self, sample_inds):
         """
@@ -251,7 +249,6 @@ class ObliqueSplitter:
         proj_X = np.array(proj_X, dtype=np.float64)
         y_sample = np.array(y_sample, dtype=np.float64)
         sample_inds = np.array(sample_inds, dtype=np.intc)
-        # print(proj_X.shape, y_sample.shape, sample_inds.shape)
 
         # Call cython splitter 
         (feature, 
@@ -706,8 +703,6 @@ class ObliqueTreeClassifier(BaseEstimator):
         # Max features
         self.max_features = max_features
 
-        self.n_jobs=n_jobs
-
         self.n_classes=None
 
     # TODO: sklearn params do nothing
@@ -729,7 +724,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         """
 
         splitter = ObliqueSplitter(
-            X, y, self.max_features, self.feature_combinations, self.random_state, self.n_jobs
+            X, y, self.max_features, self.feature_combinations, self.random_state
         )
         self.n_classes = splitter.n_classes
 
@@ -742,8 +737,6 @@ class ObliqueTreeClassifier(BaseEstimator):
             self.min_impurity_decrease,
         )
         self.tree.build()
-
-        print("ok")
 
         return self
 

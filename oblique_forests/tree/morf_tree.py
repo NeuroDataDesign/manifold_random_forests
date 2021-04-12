@@ -6,7 +6,7 @@ from sklearn.tree import _tree
 from sklearn.utils import check_random_state
 import numbers
 
-from split import BaseObliqueSplitter
+from ._split import BaseObliqueSplitter
 from .oblique_tree import ObliqueSplitter, ObliqueTreeClassifier, ObliqueTree
 
 from .morf_split import Conv2DSplitter
