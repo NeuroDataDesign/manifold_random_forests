@@ -75,6 +75,36 @@ class SplitInfo:
         self.improvement = improvement
 
 
+class FilterSplitInfo(SplitInfo):
+    def __init__(
+        self,
+        feature,
+        threshold,
+        proj_vec,
+        left_impurity,
+        left_idx,
+        left_n_samples,
+        right_impurity,
+        right_idx,
+        right_n_samples,
+        no_split,
+        improvement,
+        filter_kwargs,
+    ):
+    super(FilterSplitInfo, self).__init__(feature,
+        threshold,
+        proj_vec,
+        left_impurity,
+        left_idx,
+        left_n_samples,
+        right_impurity,
+        right_idx,
+        right_n_samples,
+        no_split,
+        improvement)
+    self.filter_kwargs = filter_kwargs
+    
+
 class ObliqueSplitter:
     """
     A class used to represent an oblique splitter, where splits are done on
@@ -181,7 +211,9 @@ class ObliqueSplitter:
         # Need to remove zero vectors from projmat
         proj_mat = proj_mat[:, np.unique(rand_dim)]
         
+        # apply transformation of sample data points
         proj_X = self.X[sample_inds, :] @ proj_mat
+
         return proj_X, proj_mat
 
     def leaf_label_proba(self, idx):

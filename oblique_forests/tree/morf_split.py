@@ -6,12 +6,17 @@ from sklearn.base import is_classifier
 from sklearn.tree import _tree
 from sklearn.utils import check_random_state
 
+from .transform import TransformationMixin
 from ._split import BaseObliqueSplitter
 from .oblique_tree import (ObliqueSplitter, ObliqueTree,
                                     ObliqueTreeClassifier)
 
 
-class Conv2DSplitter(ObliqueSplitter):
+def _check_symmetric(a, rtol=1e-05, atol=1e-08):
+    return np.allclose(a, a.T, rtol=rtol, atol=atol)
+
+
+class Conv2DSplitter(ObliqueSplitter, TransformationMixin):
     """Convolutional splitter.
 
     A class used to represent a 2D convolutional splitter, where splits
@@ -172,6 +177,192 @@ class Conv2DSplitter(ObliqueSplitter):
     def _compute_vectorized_index_in_data(self, vec_idx):
         return np.unravel_index(vec_idx, shape=self.structured_data_shape, order="C")
 
+    def sample_proj_mat(self, sample_inds):
+        """
+        Gets the projection matrix and it fits the transform to the samples of interest.
+
+        Parameters
+        ----------
+        sample_inds : array of shape [n_samples]
+            The data we are transforming.
+
+        Returns
+        -------
+        proj_mat : {ndarray, sparse matrix} of shape (self.proj_dims, n_features)
+            The generated sparse random matrix.
+        proj_X : {ndarray, sparse matrix} of shape (n_samples, self.proj_dims)
+            Projected input data matrix.
+
+        Notes
+        -----
+        See `randMatTernary` in rerf.py for SPORF.
+
+        See `randMat
+        """
+        # creates a projection matrix where columns are vectorized patch
+        # combinations
+        proj_mat = np.zeros((self.n_features, self.proj_dims))
+
+        # generate random heights and widths of the patch. Note add 1 because numpy
+        # needs is exclusive of the high end of interval
+        rand_heights = rng.randint(
+            self.patch_height_min, self.patch_height_max + 1, size=self.proj_dims
+        )
+        rand_widths = rng.randint(
+            self.patch_width_min, self.patch_width_max + 1, size=self.proj_dims
+        )
+
+        # loop over mtry to load random patch dimensions and the
+        # top left position
+        # Note: max_features is aka mtry
+        for idx in range(self.proj_dims):
+            rand_height = rand_heights[idx]
+            rand_width = rand_widths[idx]
+            # get patch positions
+            patch_idxs = self._get_rand_patch_idx(
+                rand_height=rand_height, rand_width=rand_width
+            )
+
+            # get indices for this patch
+            proj_mat[patch_idxs, idx] = 1
+
+        proj_X = self.X[sample_inds, :] @ proj_mat
+        return proj_X, proj_mat
+
+    def _apply_filter(self, X, filter_fun):
+        try:
+            from skimage.filters import gabor_kernel
+        except Exception as e:
+            raise ImportError('This function requires scikit-image.')
+
+        frequency = rng.rand()
+        theta = rng.uniform() * 2 * np.pi 
+        # bandwiddth    
+        
+           
+
+
+class SampleGraphSplitter(ObliqueSplitter):
+    """Convolutional splitter.
+
+    A class used to represent a 2D convolutional splitter, where splits
+    are done on a convolutional patch.
+
+    Note: The convolution function is currently just the
+    summation operator.
+
+    Parameters
+    ----------
+    X : array of shape [n_samples, n_features]
+        The input data X is a matrix of the examples and their respective feature
+        values for each of the features.
+    y : array of shape [n_samples]
+        The labels for each of the examples in X.
+    max_features : float
+        controls the dimensionality of the target projection space.
+    feature_combinations : float
+        controls the density of the projection matrix
+    random_state : int
+        Controls the pseudo random number generator used to generate the projection matrix.
+    image_height : int, optional (default=None)
+        MORF required parameter. Image height of each observation.
+    image_width : int, optional (default=None)
+        MORF required parameter. Width of each observation.
+    patch_height_max : int, optional (default=max(2, floor(sqrt(image_height))))
+        MORF parameter. Maximum image patch height to randomly select from.
+        If None, set to ``max(2, floor(sqrt(image_height)))``.
+    patch_height_min : int, optional (default=1)
+        MORF parameter. Minimum image patch height to randomly select from.
+    patch_width_max : int, optional (default=max(2, floor(sqrt(image_width))))
+        MORF parameter. Maximum image patch width to randomly select from.
+        If None, set to ``max(2, floor(sqrt(image_width)))``.
+    patch_width_min : int (default=1)
+        MORF parameter. Minimum image patch height to randomly select from.
+    discontiguous_height : bool, optional (defaul=False)
+        Whether or not the rows of the patch are taken discontiguously or not.
+    discontiguous_width : bool, optional (default=False)
+        Whether or not the columns of the patch are taken discontiguously or not.
+
+    Methods
+    -------
+    sample_proj_mat
+        Will compute projection matrix, which has columns as the vectorized
+        convolutional patches.
+
+    Notes
+    -----
+    This class assumes that data is vectorized in
+    row-major (C-style), rather then column-major (Fotran-style) order.
+    """
+    def __init__(
+        self,
+        X,
+        y,
+        max_features,
+        feature_combinations,
+        random_state,
+        sample_strategies: list,
+        sample_dims: list,
+        patch_dims: list=None,
+    ):
+        super(SampleGraphSplitter, self).__init__(
+            X=X,
+            y=y,
+            max_features=max_features,
+            feature_combinations=feature_combinations,
+            random_state=random_state,
+        )
+
+        if axis_sample_graphs is None and axis_data_dims is None:
+            raise RuntimeError(
+                "Either the sample graph must be instantiated, or "
+                "the data dimensionality must be specified. Both are not right now."
+            )
+
+        # error check sampling graphs
+        if axis_sample_graphs is not None:
+            # perform error check on the passes in sample graphs and dimensions
+            if len(axis_sample_graphs) != len(axis_sample_dims):
+                raise ValueError(
+                    f"The number of sample graphs \
+                ({len(axis_sample_graphs)}) must match \
+                the number of sample dimensions ({len(axis_sample_dims)}) in MORF."
+                )
+            if not all([x.ndim == 2 for x in axis_sample_graphs]):
+                raise ValueError(
+                    f"All axis sample graphs must be \
+                                    2D matrices."
+                )
+            if not all([x.shape[0] == x.shape[1] for x in axis_sample_graphs]):
+                raise ValueError(f"All axis sample graphs must be " "square matrices.")
+
+            # XXX: could later generalize to remove this condition
+            if not all([_check_symmetric(x) for x in axis_sample_graphs]):
+                raise ValueError("All axis sample graphs must" "be symmetric.")
+
+        # error check data dimensions
+        if axis_data_dims is not None:
+            # perform error check on the passes in sample graphs and dimensions
+            if len(axis_data_dims) != len(axis_sample_dims):
+                raise ValueError(
+                    f"The number of data dimensions "
+                    "({len(axis_data_dims)}) must match "
+                    "the number of sample dimensions ({len(axis_sample_dims)}) in MORF."
+                )
+
+            if X.shape[1] != np.sum(axis_data_dims):
+                raise ValueError(
+                    f"The specified data dimensionality "
+                    "({np.sum(axis_data_dims)}) does not match the dimensionality "
+                    "of the data (i.e. # columns in X: {X.shape[1]})."
+                )
+
+        # set sample dimensions
+        self.structured_data_shape = sample_dims
+        self.sample_dims = sample_dims
+        self.sample_strategies = sample_strategies
+
+    
     def sample_proj_mat(self, sample_inds):
         """
         Gets the projection matrix and it fits the transform to the samples of interest.
