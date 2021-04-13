@@ -13,6 +13,7 @@ class ObliqueForestClassifier(ForestClassifier):
         min_samples_leaf=1,
         #  min_weight_fraction_leaf=0.,
         max_features=1.0,
+        feature_combinations=1.5,
         #  max_leaf_nodes=None,
         #  min_impurity_decrease=0.,
         #  min_impurity_split=None,
@@ -25,6 +26,7 @@ class ObliqueForestClassifier(ForestClassifier):
         class_weight=None,
         #  ccp_alpha=0.0,
         max_samples=None,
+
     ):
         super().__init__(
             base_estimator=ObliqueTreeClassifier(),
@@ -35,6 +37,7 @@ class ObliqueForestClassifier(ForestClassifier):
                 "min_samples_leaf",
                 #   "min_weight_fraction_leaf",
                 "max_features",
+                "feature_combinations",
                 #   "max_leaf_nodes",
                 #   "min_impurity_decrease", "min_impurity_split",
                 "random_state",
@@ -55,6 +58,7 @@ class ObliqueForestClassifier(ForestClassifier):
         self.min_samples_leaf = min_samples_leaf
         # self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
+        self.feature_combinations = feature_combinations
         # self.max_leaf_nodes = max_leaf_nodes
         # self.min_impurity_decrease = min_impurity_decrease
         # self.min_impurity_split = min_impurity_split
