@@ -6,7 +6,7 @@ jobs:
     docker:
       - image: circleci/python:3.8.1-buster
     environment:
-      CODECOV_TOKEN: "24ebd27b-4413-4e7e-acbd-46499658bd1e"
+      CODECOV_TOKEN: "cb142a98-9da3-4fc9-b6b5-ed62b9809d16"
     steps:
       - checkout
 

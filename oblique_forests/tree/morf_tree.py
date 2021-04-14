@@ -54,7 +54,7 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
         If None, set to ``max(2, floor(sqrt(image_width)))``.
     patch_width_min : int (default=1)
         MORF parameter. Minimum image patch height to randomly select from.
-    discontiguous_height : bool, optional (defaul=False)
+    discontiguous_height : bool, optional (default=False)
         Whether or not the rows of the patch are taken discontiguously or not.
     discontiguous_width : bool, optional (default=False)
         Whether or not the columns of the patch are taken discontiguously or not.

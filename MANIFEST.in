@@ -1,26 +1,23 @@
 include *.rst
 include LICENSE
-include mne_hfo/__init__.py
+include oblique_forests/__init__.py
 include Pipfile
 include Pipfile.lock
 include data/README
 include data/.bidsignore
 include *.txt
+include MANIFEST.in
+include *.md
+include *.py
 
 recursive-include examples *.py
 recursive-include examples README.rst
 
-recursive-include mne_hfo *.py
-
-recursive-include data *.eeg
-recursive-include data *.json
-recursive-include data *.tsv
-recursive-include data *.vhdr
-recursive-include data *.vmrk
-
-include mne_hfo/assets/*
+recursive-include oblique_forests *.py
+recursive-include data *.npy
 
 ### Exclude
+recursive-include oblique_forests *.pyx *.c *.cpp
 
 exclude .zenodo*
 exclude .github
@@ -32,9 +29,6 @@ exclude .mailmap
 exclude paper
 exclude ignore_words.txt
 exclude data
-recursive-exclude mne_bids *.pyc
-
 recursive-exclude docs *
 recursive-exclude paper *
-
 exclude test_requirements.txt

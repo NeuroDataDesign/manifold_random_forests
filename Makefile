@@ -68,7 +68,19 @@ type-check:
 	mypy ./oblique_forests
 
 pep:
-	@$(MAKE) -k flake pydocstyle check-manifest codespell-error type-check
+	@$(MAKE) -k black pydocstyle check-manifest codespell-error
+#type-check
+
+black:
+	@if command -v black > /dev/null; then \
+		echo "Running black"; \
+		black --check oblique_forests; \
+		black oblique_forests/*; \
+	else \
+		echo "black not found, please install it!"; \
+		exit 1; \
+	fi;
+	@echo "black passed"
 
 build-dev:
 	pip install --verbose --no-build-isolation --editable .

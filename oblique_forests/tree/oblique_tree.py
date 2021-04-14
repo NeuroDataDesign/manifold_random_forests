@@ -25,7 +25,7 @@ class SplitInfo:
     threshold : float
         The feature value which defines the split, if an example has a value less
         than this threshold for the feature of this split then it will go to the
-        left child, otherwise it wil go the right child where these children are
+        left child, otherwise it will go the right child where these children are
         the children nodes of the node for which this split defines.
     proj_vec : array of shape [n_features]
         The vector of the sparse random projection matrix relevant for the split.
