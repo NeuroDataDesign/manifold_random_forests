@@ -7,7 +7,7 @@ from contextlib import suppress
 # (new_module_name, deprecated_path, correct_import_path)
 _DEPRECATED_MODULES = {
     # TODO: Remove in 0.24
-    ('_mocking', 'sklearn.utils.mocking', 'sklearn.utils')
+    ("_mocking", "sklearn.utils.mocking", "sklearn.utils")
 }
 
 _FILE_CONTENT_TEMPLATE = """from .{new_module_name} import *  # noqa
@@ -31,16 +31,16 @@ def _create_deprecated_modules_files():
     on the deprecated submodule's name. When this submodule is imported a
     deprecation warning will be raised.
     """
-    for (new_module_name, deprecated_path,
-         correct_import_path) in _DEPRECATED_MODULES:
+    for (new_module_name, deprecated_path, correct_import_path) in _DEPRECATED_MODULES:
         relative_dots = deprecated_path.count(".") * "."
         deprecated_content = _FILE_CONTENT_TEMPLATE.format(
             new_module_name=new_module_name,
             relative_dots=relative_dots,
             deprecated_path=deprecated_path,
-            correct_import_path=correct_import_path)
+            correct_import_path=correct_import_path,
+        )
 
-        with _get_deprecated_path(deprecated_path).open('w') as f:
+        with _get_deprecated_path(deprecated_path).open("w") as f:
             f.write(deprecated_content)
 
 

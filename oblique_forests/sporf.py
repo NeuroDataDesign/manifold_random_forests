@@ -26,7 +26,6 @@ class ObliqueForestClassifier(ForestClassifier):
         class_weight=None,
         #  ccp_alpha=0.0,
         max_samples=None,
-
     ):
         super().__init__(
             base_estimator=ObliqueTreeClassifier(),
@@ -62,5 +61,3 @@ class ObliqueForestClassifier(ForestClassifier):
         # self.max_leaf_nodes = max_leaf_nodes
         # self.min_impurity_decrease = min_impurity_decrease
         # self.min_impurity_split = min_impurity_split
-
-    

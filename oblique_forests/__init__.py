@@ -2,7 +2,7 @@
 import os
 import sys
 
-__version__ = '0.1dev'
+__version__ = "0.1dev"
 
 # On OSX, we can get a runtime error due to multiple OpenMP libraries loaded
 # simultaneously. This can happen for instance when calling BLAS inside a
@@ -27,7 +27,7 @@ except NameError:
     __SKLEARN_SETUP__ = False
 
 if __SKLEARN_SETUP__:
-    sys.stderr.write('Partial import of sklearn during the build process.\n')
+    sys.stderr.write("Partial import of sklearn during the build process.\n")
     # We are not importing the rest of scikit-learn during the build
     # process, as it may not be compiled yet
 else:
@@ -35,4 +35,4 @@ else:
 
     __check_build  # avoid flakes unused variable error
 
-    __all__ = ['tree']
+    __all__ = ["tree"]

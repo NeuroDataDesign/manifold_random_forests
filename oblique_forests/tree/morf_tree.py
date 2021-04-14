@@ -181,8 +181,7 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
         expanded_class_weight = None
 
         # Check parameters
-        self.max_depth = ((2 ** 31) - 1 if self.max_depth is None
-                     else self.max_depth)
+        self.max_depth = (2 ** 31) - 1 if self.max_depth is None else self.max_depth
         # self.max_leaf_nodes = (-1 if self.max_leaf_nodes is None
         #                   else self.max_leaf_nodes)
 
@@ -198,21 +197,21 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
                 max_features = max(1, int(np.log2(self.n_features_)))
             else:
                 raise ValueError(
-                    'Invalid value for max_features. Allowed string '
-                    'values are "auto", "sqrt" or "log2".')
+                    "Invalid value for max_features. Allowed string "
+                    'values are "auto", "sqrt" or "log2".'
+                )
         elif self.max_features is None:
             max_features = self.n_features_
         elif isinstance(self.max_features, numbers.Integral):
             max_features = self.max_features
         else:  # float
             if self.max_features > 0.0:
-                max_features = max(1,
-                                   int(self.max_features * self.n_features_))
+                max_features = max(1, int(self.max_features * self.n_features_))
             else:
                 max_features = 0
         self.max_features = max_features
 
-        # note that this is done in scikit-learn, but results in a matrix 
+        # note that this is done in scikit-learn, but results in a matrix
         # multiplication error because y is 2D
         if y.ndim == 1:
             # reshape is necessary to preserve the data contiguity against vs

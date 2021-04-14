@@ -66,31 +66,31 @@ jobs:
       - name: Build sdist
         run: python setup.py sdist
       - name: Install sdist
-        run: pip install ./dist/morf-*
+        run: pip install ./dist/oblique_forests-*
       - name: Clean up working directory
         run: rm -rf ./*
-      - name: Try importing morf
-        run: python -c 'import morf; print(morf.__version__)'
+      - name: Try importing oblique_forests
+        run: python -c 'import oblique_forests; print(oblique_forests.__version__)'
       - name: Remove sdist install
-        run: pip uninstall -y morf
+        run: pip uninstall -y oblique_forests
 
       - uses: actions/checkout@v2
       - name: Build wheel
         run: python setup.py bdist_wheel
       - name: Install wheel
-        run: pip install ./dist/morf-*.whl
+        run: pip install ./dist/oblique_forests-*.whl
       - name: Clean up working directory
         run: rm -rf ./*
-      - name: Try importing morf
-        run: python -c 'import morf; print(morf.__version__)'
+      - name: Try importing oblique_forests
+        run: python -c 'import oblique_forests; print(oblique_forests.__version__)'
       - name: Remove wheel install
-        run: pip uninstall -y morf
+        run: pip uninstall -y oblique_forests
 
       - uses: actions/checkout@v2
       - name: Test extras install
         run: |
           pip install .[full]
-          python -c 'import morf; print(morf.__version__)'
+          python -c 'import oblique_forests; print(oblique_forests.__version__)'
 
   test:
     runs-on: ${{ matrix.os }}
@@ -134,13 +134,13 @@ jobs:
           date
           python --version
           which python
-          python -c "import morf;"
+          python -c "import oblique_forests;"
 
-      # - name: Install morf
+      # - name: Install oblique_forests
       #   run: pip install --no-deps .
       # - name: Run pytest
       #   run: |
-      #     python -m pytest . --cov=morf --cov-report=xml --cov-config=setup.cfg --verbose
+      #     python -m pytest . --cov=oblique_forests --cov-report=xml --cov-config=setup.cfg --verbose
       #   shell: bash
 #      - name: Upload coverage stats to codecov
 #        if: "matrix.os == 'ubuntu-latest'"

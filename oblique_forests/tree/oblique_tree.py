@@ -4,6 +4,7 @@ from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
+from .oblique_base import BaseObliqueSplitter
 from ._split import BaseObliqueSplitter
 
 
@@ -75,37 +76,7 @@ class SplitInfo:
         self.improvement = improvement
 
 
-class FilterSplitInfo(SplitInfo):
-    def __init__(
-        self,
-        feature,
-        threshold,
-        proj_vec,
-        left_impurity,
-        left_idx,
-        left_n_samples,
-        right_impurity,
-        right_idx,
-        right_n_samples,
-        no_split,
-        improvement,
-        filter_kwargs,
-    ):
-    super(FilterSplitInfo, self).__init__(feature,
-        threshold,
-        proj_vec,
-        left_impurity,
-        left_idx,
-        left_n_samples,
-        right_impurity,
-        right_idx,
-        right_n_samples,
-        no_split,
-        improvement)
-    self.filter_kwargs = filter_kwargs
-    
-
-class ObliqueSplitter:
+class ObliqueSplitter(BaseObliqueSplitter):
     """
     A class used to represent an oblique splitter, where splits are done on
     the linear combination of the features.
@@ -145,7 +116,6 @@ class ObliqueSplitter:
     """
 
     def __init__(self, X, y, max_features, feature_combinations, random_state):
-
         self.X = np.array(X, dtype=np.float64)
 
         # y must be 1D
@@ -153,7 +123,7 @@ class ObliqueSplitter:
 
         classes = np.array(np.unique(y), dtype=int)
         self.n_classes = len(classes)
-        self.class_indices = {j:i for i, j in enumerate(classes)}
+        self.class_indices = {j: i for i, j in enumerate(classes)}
 
         self.indices = np.indices(self.y.shape)[0]
 
@@ -170,7 +140,7 @@ class ObliqueSplitter:
 
         # proj_dims = d = mtry
         self.proj_dims = max(int(max_features * self.n_features), 1)
-       
+
         # feature_combinations = mtry_mult
         # In processingNodeBin.h, mtryDensity = int(mtry * mtry_mult)
         self.n_non_zeros = max(int(self.proj_dims * feature_combinations), 1)
@@ -197,20 +167,47 @@ class ObliqueSplitter:
         proj_X : {ndarray, sparse matrix} of shape (n_samples, self.proj_dims)
             Projected input data matrix.
         """
-        
+
         if self.debug:
             return self.X[sample_inds, :], np.eye(self.n_features)
 
         # This is the way its done in the C++
+        # create a d X d' matrix, where d' < d is the projected dimension
         proj_mat = np.zeros((self.n_features, self.proj_dims))
+
+        # sample non-zero indices along the feature and projection dimension
         rand_feat = rng.randint(self.n_features, size=self.n_non_zeros)
         rand_dim = rng.randint(self.proj_dims, size=self.n_non_zeros)
+        # weights = [1 if rng.rand() > 0.5 else -1 for i in range(self.n_non_zeros)]
+        # proj_mat[rand_feat, rand_dim] = weights
+        proj_mat[rand_feat, rand_dim] = 1.0
+
+        return proj_mat, rand_feat, rand_dim
+
+    def project_data(self, sample_inds):
+        """Project data.
+
+        The data is projected (usually) onto a lower
+        dimensional manifold.
+
+        Parameters
+        ----------
+        sample_inds : [type]
+            [description]
+        """
+        # first one can optionally sample a projection matrix
+        # where one chooses a sub-patch
+        proj_mat, rand_feat, rand_dim = self.sample_proj_mat(sample_inds)
+
+        # next, one can optionally apply a transformation on this
+        # sub-patch: SPORF = linear combination, basic MORF = summation
+        # Gabor MORF = Gabor filter
         weights = [1 if rng.rand() > 0.5 else -1 for i in range(self.n_non_zeros)]
         proj_mat[rand_feat, rand_dim] = weights
 
         # Need to remove zero vectors from projmat
         proj_mat = proj_mat[:, np.unique(rand_dim)]
-        
+
         # apply transformation of sample data points
         proj_X = self.X[sample_inds, :] @ proj_mat
 
@@ -238,7 +235,7 @@ class ObliqueSplitter:
         samples = self.y[idx]
         n = len(samples)
         labels, count = np.unique(samples, return_counts=True)
-       
+
         proba = np.zeros(self.n_classes)
         for i, l in enumerate(labels):
             class_idx = self.class_indices[l]
@@ -246,7 +243,7 @@ class ObliqueSplitter:
 
         most = np.argmax(count)
         label = labels[most]
-        #max_proba = count[most] / n
+        # max_proba = count[most] / n
 
         return label, proba
 
@@ -269,10 +266,10 @@ class ObliqueSplitter:
         sample_inds = sample_inds.squeeze()
 
         if not self.y.squeeze().ndim == 1:
-            raise RuntimeError('Does not support multivariate output yet.')
+            raise RuntimeError("Does not support multivariate output yet.")
 
         # Project the data
-        proj_X, proj_mat = self.sample_proj_mat(sample_inds)
+        proj_X, proj_mat = self.project_data(sample_inds)
         y_sample = self.y[sample_inds]
         n_samples = len(sample_inds)
 
@@ -282,26 +279,32 @@ class ObliqueSplitter:
         y_sample = np.array(y_sample, dtype=np.float64)
         sample_inds = np.array(sample_inds, dtype=np.intc)
 
-        # Call cython splitter 
-        (feature, 
-        threshold, 
-        left_impurity, 
-        left_idx, 
-        right_impurity, 
-        right_idx, 
-        improvement) = self.BOS.best_split(proj_X, y_sample, sample_inds)
+        # Call cython splitter
+        (
+            feature,
+            threshold,
+            left_impurity,
+            left_idx,
+            right_impurity,
+            right_idx,
+            improvement,
+        ) = self.BOS.best_split(proj_X, y_sample, sample_inds)
 
         # TODO: These are coming out as memory views. Fix this.
         left_idx = np.asarray(left_idx)
         right_idx = np.asarray(right_idx)
-    
+
         left_n_samples = len(left_idx)
         right_n_samples = len(right_idx)
 
         no_split = left_n_samples == 0 or right_n_samples == 0
 
+        # select the index of the projection we want to use
         proj_vec = proj_mat[:, feature]
 
+        # store the split info, which in this case
+        # also stores the projection vector selected with
+        # best split criterion (i.e. Gini impurity)
         split_info = SplitInfo(
             feature,
             threshold,
@@ -435,10 +438,9 @@ class ObliqueTree:
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.max_depth = max_depth
-        
+
         if self.max_depth is None:
             self.max_depth = np.inf
-
 
         self.min_impurity_split = min_impurity_split
         self.min_impurity_decrease = min_impurity_decrease
@@ -646,7 +648,7 @@ class ObliqueTree:
         for i in range(X.shape[0]):
             cur = self.nodes[0]
             while cur is not None and not cur.is_leaf:
-               
+
                 proj_X = X[i] @ cur.proj_vec
 
                 if proj_X < cur.threshold:
@@ -735,7 +737,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         # Max features
         self.max_features = max_features
 
-        self.n_classes=None
+        self.n_classes = None
         self.n_jobs = n_jobs
 
     # TODO: sklearn params do nothing
