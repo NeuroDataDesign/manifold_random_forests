@@ -9,7 +9,8 @@ import numbers
 from ._split import BaseObliqueSplitter
 from .oblique_tree import ObliqueSplitter, ObliqueTreeClassifier, ObliqueTree
 
-from .morf_split import Conv2DSplitter
+from .conv import _apply_convolution
+from .morf_split import Conv2DSplitter, GaborSplitter
 
 # =============================================================================
 # Types and constants
@@ -20,7 +21,7 @@ DOUBLE = _tree.DOUBLE
 
 
 class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
-    """[summary]
+    """Convolutional patch oblique tree classifier.
 
     Parameters
     ----------
@@ -101,12 +102,10 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
             feature_combinations=feature_combinations,
             max_features=max_features,
             random_state=random_state,
+            bootstrap=bootstrap,
+            warm_start=warm_start,
+            verbose=verbose,
         )
-
-        # refactor these to go inside ObliqueTreeClassifier
-        self.bootstrap = bootstrap
-        self.warm_start = warm_start
-        self.verbose = verbose
 
         # s-rerf params
         self.discontiguous_height = discontiguous_height
@@ -150,7 +149,50 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
         else:
             raise ValueError("Incorrect patch_width_min")
 
+    def _set_splitter(self, X, y):
+        return Conv2DSplitter(
+            X,
+            y,
+            self.max_features,
+            self.feature_combinations,
+            self.random_state,
+            self.image_height_,
+            self.image_width_,
+            self.patch_height_max_,
+            self.patch_height_min_,
+            self.patch_width_max_,
+            self.patch_width_min_,
+            self.discontiguous_height,
+            self.discontiguous_width,
+        )
+
     def fit(self, X, y, sample_weight=None, check_input=True, X_idx_sorted=None):
+        """
+        Predict final nodes of samples given.
+
+        Parameters
+        ----------
+        X : array of shape [n_samples, n_features]
+            The training samples.
+        y : array of shape [n_samples]
+            Labels for the training samples.
+        sample_weight : [type], optional
+            [description], by default None
+        check_input : bool, optional
+            [description], by default True
+        X_idx_sorted : [type], optional
+            [description], by default None
+
+        Returns
+        -------
+        ObliqueTreeClassifier
+            The fit classifier.
+
+        Raises
+        ------
+        ValueError
+            [description]
+        """
         # check random state - sklearn
         random_state = check_random_state(self.random_state)
 
@@ -220,7 +262,159 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
         self.n_outputs_ = y.shape[1]
 
         # create the splitter
-        splitter = Conv2DSplitter(
+        splitter = self._set_splitter(X, y)
+
+        # create the Oblique tree
+        self.tree = ObliqueTree(
+            splitter,
+            self.min_samples_split,
+            self.min_samples_leaf,
+            self.max_depth,
+            self.min_impurity_split,
+            self.min_impurity_decrease,
+        )
+        self.tree.build()
+        return self
+
+
+class GaborTree(ObliqueTree):
+    """A Gabor tree.
+
+    Parameters
+    ----------
+    splitter : [type]
+        [description]
+    min_samples_split : [type]
+        [description]
+    min_samples_leaf : [type]
+        [description]
+    max_depth : [type]
+        [description]
+    min_impurity_split : [type]
+        [description]
+    min_impurity_decrease : [type]
+        [description]
+    """
+
+    def __init__(
+        self,
+        splitter,
+        min_samples_split,
+        min_samples_leaf,
+        max_depth,
+        min_impurity_split,
+        min_impurity_decrease,
+    ):
+        super(GaborTree, self).__init__(
+            splitter,
+            min_samples_split,
+            min_samples_leaf,
+            max_depth,
+            min_impurity_split,
+            min_impurity_decrease,
+        )
+
+    def _transform_data(self, X, proj_vec, transform_params):
+        kernel = gabor_kernel(**cur.transform_params)
+        output = _apply_convolution(X[i], kernel, image_height, image_width)
+        proj_X = output @ cur.proj_vec
+        return proj_X
+
+
+class GaborTreeClassifier(Conv2DObliqueTreeClassifier):
+    """Gabor tree classifier.
+
+    Parameters
+    ----------
+    max_depth : [type], optional
+        [description], by default np.inf
+    min_samples_split : int, optional
+        [description], by default 1
+    min_samples_leaf : int, optional
+        [description], by default 1
+    min_impurity_decrease : int, optional
+        [description], by default 0
+    min_impurity_split : int, optional
+        [description], by default 0
+    feature_combinations : float, optional
+        [description], by default 1.5
+    max_features : int, optional
+        [description], by default 1
+    image_height : [type], optional
+        [description], by default None
+    image_width : [type], optional
+        [description], by default None
+    patch_height_max : [type], optional
+        [description], by default None
+    patch_height_min : int, optional
+        [description], by default 1
+    patch_width_max : [type], optional
+        [description], by default None
+    patch_width_min : int, optional
+        [description], by default 1
+    discontiguous_height : bool, optional
+        [description], by default False
+    discontiguous_width : bool, optional
+        [description], by default False
+    bootstrap : bool, optional
+        [description], by default True
+    random_state : [type], optional
+        [description], by default None
+    warm_start : bool, optional
+        [description], by default False
+    verbose : int, optional
+        [description], by default 0
+    """
+
+    def __init__(
+        self,
+        *,
+        max_depth=np.inf,
+        min_samples_split=1,
+        min_samples_leaf=1,
+        min_impurity_decrease=0,
+        min_impurity_split=0,
+        feature_combinations=1.5,
+        max_features=1,
+        image_height=None,
+        image_width=None,
+        patch_height_max=None,
+        patch_height_min=1,
+        patch_width_max=None,
+        patch_width_min=1,
+        discontiguous_height=False,
+        discontiguous_width=False,
+        bootstrap=True,
+        random_state=None,
+        warm_start=False,
+        verbose=0,
+    ):
+        super(GaborTreeClassifier, self).__init__(
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_impurity_decrease=min_impurity_decrease,
+            feature_combinations=feature_combinations,
+            max_features=max_features,
+            image_height=image_height,
+            image_width=image_width,
+            patch_height_max=patch_width_max,
+            patch_height_min=patch_width_min,
+            patch_width_max=patch_width_max,
+            patch_width_min=patch_width_min,
+            discontiguous_height=discontiguous_height,
+            discontiguous_width=discontiguous_width,
+            random_state=random_state,
+            bootstrap=bootstrap,
+            warm_start=warm_start,
+            verbose=verbose,
+        )
+
+    def _tree_class(self):
+        return GaborTree
+
+    def _set_splitter(self, X, y):
+        return GaborSplitter(
             X,
             y,
             self.max_features,
@@ -235,15 +429,3 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
             self.discontiguous_height,
             self.discontiguous_width,
         )
-
-        # create the Oblique tree
-        self.tree = ObliqueTree(
-            splitter,
-            self.min_samples_split,
-            self.min_samples_leaf,
-            self.max_depth,
-            self.min_impurity_split,
-            self.min_impurity_decrease,
-        )
-        self.tree.build()
-        return self

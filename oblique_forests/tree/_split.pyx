@@ -153,9 +153,11 @@ cdef class BaseObliqueSplitter:
         node_impurity = self.impurity(y)
         Q_view[:, :] = node_impurity
         
+        # loop over columns of the matrix (projected feature dimensions)
         for j in range(0, proj_dims):
-       
+            # get the sorted indices along the rows (sample dimension)
             self.argsort(X[:, j], idx_view)
+
             for i in range(0, n_samples):
                 temp_int = idx_view[i]
                 y_sort_view[i] = y[temp_int]

@@ -4,6 +4,40 @@ from .tree.oblique_tree import ObliqueTreeClassifier
 
 
 class ObliqueForestClassifier(ForestClassifier):
+    """Sparse projection oblique forest classifier (SPORF).
+
+    Parameters
+    ----------
+    n_estimators : int, optional
+        [description], by default 100
+    max_depth : [type], optional
+        [description], by default None
+    min_samples_split : int, optional
+        [description], by default 2
+    min_samples_leaf : int, optional
+        [description], by default 1
+    max_features : float, optional
+        [description], by default 1.0
+    feature_combinations : float, optional
+        [description], by default 1.5
+    bootstrap : bool, optional
+        [description], by default True
+    oob_score : bool, optional
+        [description], by default False
+    n_jobs : [type], optional
+        [description], by default None
+    random_state : [type], optional
+        [description], by default None
+    verbose : int, optional
+        [description], by default 0
+    warm_start : bool, optional
+        [description], by default False
+    class_weight : [type], optional
+        [description], by default None
+    max_samples : [type], optional
+        [description], by default None
+    """
+
     def __init__(
         self,
         n_estimators=100,

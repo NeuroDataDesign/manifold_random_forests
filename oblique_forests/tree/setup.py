@@ -4,7 +4,7 @@ import numpy
 from numpy.distutils.misc_util import Configuration
 
 
-def configuration(parent_package="", top_path=None):
+def configuration(parent_package="", top_path=None):  # noqa
     config = Configuration("tree", parent_package, top_path)
     libraries = []
     if os.name == "posix":

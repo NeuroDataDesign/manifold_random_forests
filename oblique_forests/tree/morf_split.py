@@ -1,14 +1,19 @@
 import numpy as np
 import numpy.random as rng
-
+import scipy.signal
 from scipy.sparse import issparse
 from sklearn.base import is_classifier
 from sklearn.tree import _tree
 from sklearn.utils import check_random_state
 
-# from .transform import TransformationMixin
 from ._split import BaseObliqueSplitter
+from .conv import _apply_convolution
 from .oblique_tree import ObliqueSplitter, ObliqueTree, ObliqueTreeClassifier
+
+try:
+    from skimage.filters import gabor_kernel
+except Exception as e:
+    raise ImportError("This function requires scikit-image.")
 
 
 def _check_symmetric(a, rtol=1e-05, atol=1e-08):
@@ -83,7 +88,6 @@ class Conv2DSplitter(ObliqueSplitter):
         patch_width_min=1,
         discontiguous_height: bool = False,
         discontiguous_width: bool = False,
-        debug: bool = False,
     ):
         super(Conv2DSplitter, self).__init__(
             X=X,
@@ -106,10 +110,9 @@ class Conv2DSplitter(ObliqueSplitter):
         self.structured_data_shape = [image_height, image_width]
         self.discontiguous_height = discontiguous_height
         self.disontiguous_width = discontiguous_width
-        self.debug = debug
 
     def _get_rand_patch_idx(self, rand_height, rand_width):
-        """Generates a random patch on the original data to consider as feature combination.
+        """Generate a random patch on the original data to consider as feature combination.
 
         This function assumes that data samples were vectorized. Thus contiguous convolutional
         patches are defined based on the top left corner. If the convolutional patch
@@ -119,10 +122,18 @@ class Conv2DSplitter(ObliqueSplitter):
         - refactor to optimize for discontiguous and contiguous case
         - currently pretty slow because being constructed and called many times
 
+        Parameters
+        ----------
+        rand_height : int
+            A random height chosen between ``[1, image_height]``.
+        rand_width : int
+            A random width chosen between ``[1, image_width]``.
+
         Returns
         -------
-        height_width_top : tuple of (height, width, topleft point)
-            [description]
+        patch_idxs : np.ndarray
+            The indices of the selected patch inside the vectorized
+            structured data.
         """
         # XXX: results in edge effect on the RHS of the structured data...
         # compute the difference between the image dimension and current random
@@ -176,16 +187,9 @@ class Conv2DSplitter(ObliqueSplitter):
     def _compute_vectorized_index_in_data(self, vec_idx):
         return np.unravel_index(vec_idx, shape=self.structured_data_shape, order="C")
 
-    def project_data(self, sample_inds):
-        proj_mat = self.sample_proj_mat(sample_inds)
-
-        # apply summation operation over the sampled patch
-        proj_X = self.X[sample_inds, :] @ proj_mat
-        return proj_X, proj_mat
-
     def sample_proj_mat(self, sample_inds):
         """
-        Gets the projection matrix and it fits the transform to the samples of interest.
+        Get the projection matrix and it fits the transform to the samples of interest.
 
         Parameters
         ----------
@@ -232,10 +236,67 @@ class Conv2DSplitter(ObliqueSplitter):
             # get indices for this patch
             proj_mat[patch_idxs, idx] = 1
 
-        return proj_mat
+        # apply summation operation over the sampled patch
+        proj_X = self.X[sample_inds, :] @ proj_mat
+        return proj_X, proj_mat
 
 
-class GaborSplitter(ObliqueSplitter):
+class GaborSplitter(Conv2DSplitter):
+    """Splitter using Gabor kernel activations.
+
+    Parameters
+    ----------
+    X : [type]
+        [description]
+    y : [type]
+        [description]
+    max_features : [type]
+        [description]
+    feature_combinations : [type]
+        [description]
+    random_state : [type]
+        [description]
+    image_height : [type], optional
+        [description], by default None
+    image_width : [type], optional
+        [description], by default None
+    patch_height_max : [type], optional
+        [description], by default None
+    patch_height_min : int, optional
+        [description], by default 1
+    patch_width_max : [type], optional
+        [description], by default None
+    patch_width_min : int, optional
+        [description], by default 1
+    discontiguous_height : bool, optional
+        [description], by default False
+    discontiguous_width : bool, optional
+        [description], by default False
+    frequency : [type], optional
+        [description], by default None
+    theta : [type], optional
+        [description], by default None
+    bandwidth : int, optional
+        [description], by default 1
+    sigma_x : [type], optional
+        [description], by default None
+    sigma_y : [type], optional
+        [description], by default None
+    n_stds : int, optional
+        [description], by default 3
+    offset : int, optional
+        [description], by default 0
+
+    Notes
+    -----
+    This class only uses convolution with ``'same'`` padding done to
+    prevent a change in the size of the output image compared to the
+    input image.
+
+    This splitter relies on pytorch to do convolutions efficiently
+    and scikit-image to instantiate the Gabor kernels.
+    """
+
     def __init__(
         self,
         X,
@@ -245,6 +306,12 @@ class GaborSplitter(ObliqueSplitter):
         random_state,
         image_height=None,
         image_width=None,
+        patch_height_max=None,
+        patch_height_min=1,
+        patch_width_max=None,
+        patch_width_min=1,
+        discontiguous_height: bool = False,
+        discontiguous_width: bool = False,
         frequency=None,
         theta=None,
         bandwidth=1,
@@ -259,12 +326,15 @@ class GaborSplitter(ObliqueSplitter):
             max_features=max_features,
             feature_combinations=feature_combinations,
             random_state=random_state,
+            image_height=image_height,
+            image_width=image_width,
+            patch_height_max=patch_height_max,
+            patch_height_min=patch_height_min,
+            patch_width_max=patch_width_max,
+            patch_width_min=patch_width_min,
+            discontiguous_height=discontiguous_height,
+            discontiguous_width=discontiguous_width,
         )
-        # set sample dimensions
-        self.image_height = image_height
-        self.image_width = image_width
-        self.structured_data_shape = [image_height, image_width]
-
         # filter parameters
         self.frequency = frequency
         self.theta = theta
@@ -274,25 +344,162 @@ class GaborSplitter(ObliqueSplitter):
         self.n_stds = n_stds
         self.offset = offset
 
-    def project_data(self, sample_inds):
-        proj_mat = self.sample_proj_mat(sample_inds)
+    # not used.
+    def _convolutional_kernel_matrix(
+        self, kernel, image_height, image_width, mode="full"
+    ):
+        """Manually doing convolution matrix.
 
-        try:
-            from skimage.filters import gabor_kernel
-        except Exception as e:
-            raise ImportError("This function requires scikit-image.")
+        # sample mtry times different filters
+        for idx in range(self.proj_dims):
+            frequency = rng.rand()  # spatial frequency
+            theta = rng.uniform() * 2 * np.pi  # orientation in radians
+            bandwidth = rng.uniform() * 5  # bandwidth of the filter
+            n_stds = rng.randint(1, 4)
 
-        frequency = rng.rand()
-        theta = rng.uniform() * 2 * np.pi
-        # bandwidth
+            # get the random kernel
+            kernel_params = {
+                "frequency": frequency,
+                "theta": theta,
+                "bandwidth": bandwidth,
+                "n_stds": n_stds,
+            }
+            kernel = gabor_kernel(**kernel_params)
+            proj_kernel_params.append(kernel_params)
 
-        # apply summation operation over the sampled patch
-        proj_X = self.X[sample_inds, :] @ proj_mat
-        return proj_X, proj_mat
+            # apply kernel as a full discrete linear convolution
+            # over sub-sampled patch
+            conv_kernel_mat = self._convolutional_kernel_matrix(
+                kernel, image_height=patch_height, image_width=patch_width
+            )
+            convolved_X = self.X[:, patch_idxs] @ conv_kernel_mat.T
 
-    def sample_proj_mat(self, sample_inds):
+            proj_X[:, idx] = convolved_X.real.sum()
+
+        Parameters
+        ----------
+        kernel : [type]
+            [description]
+        image_height : [type]
+            [description]
+        image_width : [type]
+            [description]
+        mode : str, optional
+            [description], by default "full"
+
+        Returns
+        -------
+        [type]
+            [description]
         """
-        Gets the projection matrix and it fits the transform to the samples of interest.
+        # not used
+        # reference: https://stackoverflow.com/questions/16798888/2-d-convolution-as-a-matrix-matrix-multiplication
+        if mode == "same":
+            pad_size = ((kernel.shape[0] - 1) / 2, (kernel.shape[1] - 1) / 2)
+            image_height = image_height + pad_size[0]
+            image_width = image_width + pad_size[1]
+
+        # get output size of the data
+        output_size = (
+            image_height + kernel.shape[0] - 1,
+            image_width + kernel.shape[1] - 1,
+        )
+
+        # zero-pad filter matrix
+        pad_width = [
+            (output_size[0] - kernel.shape[0], 0),
+            (0, output_size[1] - kernel.shape[1]),
+        ]
+        kernel_padded = np.pad(kernel, pad_width=pad_width)
+
+        # create the toeplitz matrix for each row of the filter
+        toeplitz_list = []
+        for i in range(kernel_padded.shape[0]):
+            c = kernel_padded[
+                i, :
+            ]  # i th row of the F to define first column of toeplitz matrix
+
+            # first row for the toeplitz function should be defined otherwise
+            # the result is wrong
+            r = np.hstack([c[0], np.zeros(int(image_width * image_height / 2) - 1)])
+
+            # create the toeplitz matrix
+            toeplitz_m = scipy.linalg.toeplitz(c, r)
+
+            assert toeplitz_m.shape == (kernel_padded.shape[1], len(r))
+
+            #     print(toeplitz_m.shape)
+            toeplitz_list.append(toeplitz_m)
+
+        # create block matrix
+        zero_block = np.zeros(toeplitz_m.shape)
+        block_seq = []
+        for idx, block in enumerate(toeplitz_list):
+            if idx == 0:
+                block_seq.append([block, zero_block])
+            else:
+                block_seq.append([block, toeplitz_list[idx - 1]])
+        doubly_block_mat = np.block(block_seq)
+        return doubly_block_mat
+
+    def _sample_kernel(self):
+        """Sample a random Gabor kernel.
+
+        Returns
+        -------
+        kernel : instance of skimage.filters.gabor_kernel
+            A 2D Gabor kernel (K x K).
+        kernel_params: dict
+            A dictionary of keys and values of the corresponding
+            2D Gabor ``kernel`` parameters.
+
+        Raises
+        ------
+        ImportError
+            if ``scikit-image`` is not installed.
+        """
+        frequency = rng.rand()  # spatial frequency
+        theta = rng.uniform() * 2 * np.pi  # orientation in radians
+        bandwidth = rng.uniform() * 5  # bandwidth of the filter
+        n_stds = rng.randint(1, 4)
+
+        # get the random kernel
+        kernel_params = {
+            "frequency": frequency,
+            "theta": theta,
+            "bandwidth": bandwidth,
+            "n_stds": n_stds,
+        }
+        kernel = gabor_kernel(**kernel_params)
+        return kernel, kernel_params
+
+    def _apply_convolution(self, sample_X, kernel, image_height, image_width):
+        """Apply convolution of a kernel to image data.
+
+        Parameters
+        ----------
+        sample_X : np.ndarray (n_samples, n_dimensions)
+            [description]
+        kernel : [type]
+            [description]
+        image_height : int
+            [description]
+        image_width : int
+            [description]
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        output = _apply_convolution(
+            sample_X, kernel, image_height=image_height, image_width=image_width
+        )
+        return output
+
+    def sample_proj_mat(self, sample_inds, apply_conv_first=True):
+        """
+        Get the projection matrix and it fits the transform to the samples of interest.
 
         Parameters
         ----------
@@ -302,44 +509,109 @@ class GaborSplitter(ObliqueSplitter):
         Returns
         -------
         proj_mat : {ndarray, sparse matrix} of shape (self.proj_dims, n_features)
-            The generated sparse random matrix.
-        proj_X : {ndarray, sparse matrix} of shape (n_samples, self.proj_dims)
-            Projected input data matrix.
+            The generated weighted projection matrix.
 
         Notes
         -----
-        See `randMatTernary` in rerf.py for SPORF.
-
-        See `randMat
+        This will get the basis matrix based on the Gabor kernel and also
+        the patch selection vector.
         """
+        # store the kernel parameters of each "projection"
+        proj_kernel_params = []
+
         # creates a projection matrix where columns are vectorized patch
         # combinations
         proj_mat = np.zeros((self.n_features, self.proj_dims))
 
-        # generate random heights and widths of the patch. Note add 1 because numpy
-        # needs is exclusive of the high end of interval
-        rand_heights = rng.randint(
-            self.patch_height_min, self.patch_height_max + 1, size=self.proj_dims
-        )
-        rand_widths = rng.randint(
-            self.patch_width_min, self.patch_width_max + 1, size=self.proj_dims
-        )
+        if apply_conv_first:
+            # sample kernel
+            kernel, kernel_params = self._sample_kernel()
 
-        # loop over mtry to load random patch dimensions and the
-        # top left position
-        # Note: max_features is aka mtry
-        for idx in range(self.proj_dims):
-            rand_height = rand_heights[idx]
-            rand_width = rand_widths[idx]
+            # apply convolution
+            output = self._apply_convolution(
+                self.X[sample_inds, :],
+                kernel=kernel,
+                image_height=self.image_height,
+                image_width=self.image_width,
+            )
+
+            # TODO: handle imaginary and real kernel convolution
+            output = output[:, 0, ...].numpy()
+
+            # reformat to vectorized shape
+            assert output.ndim == 3
+            output = output.reshape(len(sample_inds), self.n_features)
+
+            # keep track of the kernel parameters
+            proj_kernel_params.append(kernel_params)
+        else:
+            # generate random heights and widths of the patch. Note add 1 because numpy
+            # needs is exclusive of the high end of interval
+            rand_height = rng.randint(
+                self.patch_height_min, self.patch_height_max + 1, size=None
+            )
+            rand_width = rng.randint(
+                self.patch_width_min, self.patch_width_max + 1, size=None
+            )
+
+            # choose patch
             # get patch positions
             patch_idxs = self._get_rand_patch_idx(
                 rand_height=rand_height, rand_width=rand_width
             )
 
-            # get indices for this patch
-            proj_mat[patch_idxs, idx] = 1
+            proj_mat[patch_idxs, :] = 1.0
 
-        return proj_mat
+        # sample mtry times different filters
+        for idx in range(self.proj_dims):
+            patch_weights = np.zeros(
+                (self.n_features, self.proj_dims), dtype=np.float64
+            )
+
+            if apply_conv_first:
+                # generate random heights and widths of the patch. Note add 1 because numpy
+                # needs is exclusive of the high end of interval
+                rand_height = rng.randint(
+                    self.patch_height_min, self.patch_height_max + 1, size=None
+                )
+                rand_width = rng.randint(
+                    self.patch_width_min, self.patch_width_max + 1, size=None
+                )
+
+                # choose patch
+                # get patch positions
+                patch_idxs = self._get_rand_patch_idx(
+                    rand_height=rand_height, rand_width=rand_width
+                )
+
+                proj_mat[patch_idxs, idx] = 1.0
+                # patch_weights[patch_idxs, idx] = output[:, patch_idxs]
+            else:
+                # sample kernel
+                kernel, kernel_params = self._sample_kernel()
+
+                # apply convolution
+                output = self._apply_convolution(
+                    self.X[sample_inds, :],
+                    kernel=kernel,
+                    image_height=rand_height,
+                    image_width=rand_width,
+                )
+
+                # reformat to vectorized shape
+                output = output.flatten()
+
+                # keep track of the kernel parameters
+                proj_kernel_params.append(kernel_params)
+
+                # get the output weights
+                patch_weights[:, patch_idxs] = output[:, patch_idxs]
+                proj_mat[patch_idxs, idx] = patch_weights
+
+        # apply projection matrix
+        proj_X = output @ proj_mat
+
+        return proj_X, proj_mat, proj_kernel_params
 
 
 class SampleGraphSplitter(ObliqueSplitter):
@@ -465,7 +737,7 @@ class SampleGraphSplitter(ObliqueSplitter):
 
     def sample_proj_mat(self, sample_inds):
         """
-        Gets the projection matrix and it fits the transform to the samples of interest.
+        Get the projection matrix and it fits the transform to the samples of interest.
 
         Parameters
         ----------

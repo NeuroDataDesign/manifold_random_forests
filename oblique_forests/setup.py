@@ -3,7 +3,7 @@ import os
 from oblique_forests._build_utils import maybe_cythonize_extensions
 
 
-def configuration(parent_package="", top_path=None):
+def configuration(parent_package="", top_path=None):  # noqa
     from numpy.distutils.misc_util import Configuration
     import numpy
 

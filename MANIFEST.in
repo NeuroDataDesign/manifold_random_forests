@@ -14,11 +14,10 @@ recursive-include examples *.py
 recursive-include examples README.rst
 
 recursive-include oblique_forests *.py
+recursive-include oblique_forests *.pyx *.c *.cpp
 recursive-include data *.npy
 
 ### Exclude
-recursive-include oblique_forests *.pyx *.c *.cpp
-
 exclude .zenodo*
 exclude .github
 exclude .github/PULL_REQUEST_TEMPLATE.md
