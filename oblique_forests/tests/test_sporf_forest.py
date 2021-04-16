@@ -1,25 +1,26 @@
-
 import numpy as np
 from numpy.testing import (
-        assert_almost_equal,
-        assert_allclose,
-        assert_array_equal,
-        assert_array_almost_equal
-        )
+    assert_almost_equal,
+    assert_allclose,
+    assert_array_equal,
+    assert_array_almost_equal,
+)
 
 import pytest
 
 from oblique_forests.sporf import ObliqueForestClassifier
 
+
 def test_sparse_parity():
 
-    clf = ObliqueForestClassifier(random_state=0,
-                                  n_estimators=100,
-                                  max_features=1.0,
-                                  feature_combinations=2,
-                                  n_jobs=-1
-                                  )
-    
+    clf = ObliqueForestClassifier(
+        random_state=0,
+        n_estimators=100,
+        max_features=1.0,
+        feature_combinations=2,
+        n_jobs=-1,
+    )
+
     train = np.load("data/sparse_parity_train_1000.npy")
     X_train = train[:, :-1]
     y_train = train[:, -1]
@@ -35,15 +36,17 @@ def test_sparse_parity():
 
     assert accuracy >= 0.8
 
+
 def test_orthant():
 
-    clf = ObliqueForestClassifier(random_state=0,
-                                  n_estimators=100,
-                                  max_features=1.0,
-                                  feature_combinations=2,
-                                  n_jobs=-1
-                                  )
-    
+    clf = ObliqueForestClassifier(
+        random_state=0,
+        n_estimators=100,
+        max_features=1.0,
+        feature_combinations=2,
+        n_jobs=-1,
+    )
+
     train = np.load("data/orthant_train_400.npy")
     X_train = train[:, :-1]
     y_train = train[:, -1]
@@ -58,5 +61,3 @@ def test_orthant():
     accuracy = np.sum(y_test == y_hat) / len(y_test)
 
     assert accuracy >= 0.95
-
-

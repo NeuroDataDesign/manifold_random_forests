@@ -79,10 +79,10 @@ else:
 
 # Custom clean command to remove build artifacts
 
-class CleanCommand(Clean):
+class CleanCommand(Clean):  # noqa
     description = "Remove build artifacts from the source tree"
 
-    def run(self):
+    def run(self):  # noqa
         Clean.run(self)
         # Remove c files if we are not within a sdist package
         cwd = os.path.abspath(os.path.dirname(__file__))
@@ -115,8 +115,8 @@ cmdclass = {'clean': CleanCommand}
 try:
     from numpy.distutils.command.build_ext import build_ext  # noqa
 
-    class build_ext_subclass(build_ext):
-        def build_extensions(self):
+    class build_ext_subclass(build_ext):  # noqa
+        def build_extensions(self):  # noqa
             from oblique_forests._build_utils.openmp_helpers import get_openmp_flag
 
             if not os.getenv('SKLEARN_NO_OPENMP'):
@@ -150,7 +150,7 @@ if WHEELHOUSE_UPLOADER_COMMANDS.intersection(sys.argv):
     cmdclass.update(vars(wheelhouse_uploader.cmd))
 
 
-def configuration(parent_package='', top_path=None):
+def configuration(parent_package='', top_path=None):  # noqa
     if os.path.exists('MANIFEST'):
         os.remove('MANIFEST')
 
@@ -170,9 +170,9 @@ def configuration(parent_package='', top_path=None):
     return config
 
 
-def get_numpy_status():
+def get_numpy_status():  # noqa
     """
-    Returns a dictionary containing a boolean specifying whether NumPy
+    Return a dictionary containing a boolean specifying whether NumPy
     is up-to-date, along with the version string (empty string if
     not installed).
     """
@@ -190,7 +190,7 @@ def get_numpy_status():
     return numpy_status
 
 
-def setup_package():
+def setup_package():  # noqa
     metadata = dict(name=DISTNAME,
                     maintainer=MAINTAINER,
                     maintainer_email=MAINTAINER_EMAIL,
