@@ -16,8 +16,11 @@ from libcpp.pair cimport pair
 
 from cython.parallel import prange
 
-# Computes the gini score for a split
+# TODO: Replace this once we parallelize the tree, since rand is not thread safe.
+#from libc.stdlib import rand_int
+
 # 0 < t < len(y)
+
 
 cdef class BaseObliqueSplitter:
 
@@ -56,19 +59,6 @@ cdef class BaseObliqueSplitter:
                     min_j = j
 
         return (min_i, min_j)
-
-    cdef int argmax(self, double[:] A) nogil:
-        cdef int N = A.shape[0]
-        cdef int i = 0
-        cdef int max_i = 0
-        cdef double maximum = A[0]
-
-        for i in range(N):
-            if A[i] > maximum:
-                maximum = A[i]
-                max_i = i
-
-        return max_i
 
     cdef double impurity(self, double[:] y) nogil:
         cdef int length = y.shape[0]
@@ -116,7 +106,34 @@ cdef class BaseObliqueSplitter:
         gini = (l_length / length) * left_gini + (r_length / length) * right_gini
         return gini
 
-    # X = proj_X, y = y_sample
+    cdef void matmul(self, double[:, :] A, double[:, :] B, double[:, :] res) nogil:
+
+        cdef int i, j, k
+        cdef int m, n, p
+
+        m = A.shape[0]
+        n = A.shape[1]
+        p = B.shape[1]
+
+        for i in range(m):
+            for j in range(p):
+
+                res[i, j] = 0
+                for k in range(n):
+                    res[i, j] += A[i, k] * B[k, j]
+    
+    
+    cdef void sample_proj_mat(self, double[:, :] X, double[:, :] proj_mat, double[:, :] proj_X) nogil:
+        
+        # Sample the projection matrix
+        
+
+
+        pass
+
+
+    # X, y are X/y relevant samples. sample_inds only passed in for sorting
+    # Will need to change X to not be proj_X rn
     cpdef best_split(self, double[:, :] X, double[:] y, int[:] sample_inds):
 
         cdef int n_samples = X.shape[0]
@@ -226,6 +243,11 @@ cdef class BaseObliqueSplitter:
 
     def test_best_split(self, X, y, idx):
         return self.best_split(X, y, idx)
+
+    def test_matmul(self, A, B):
+        res = np.zeros((A.shape[0], B.shape[1]), dtype=np.float64)
+        self.matmul(A, B, res)
+        return res
 
     def test(self):
 
