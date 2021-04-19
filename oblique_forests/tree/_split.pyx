@@ -75,6 +75,31 @@ cdef void matmul(double[:, :] A, double[:, :] B, double[:, :] res) nogil:
  
 cdef class BaseObliqueSplitter:
 
+    def __init__(self, double[:, :] X, 
+            double[:] y, double max_features, 
+            double feature_combinations, int random_state):
+
+        self.X = X
+        self.y = y
+        self.max_features = max_features
+        self.feature_combinations = feature_combinations
+        self.random_state = random_state
+
+        classes = np.array(np.unique(y), dtype=np.intc)
+        self.n_classes = len(classes)
+        self.class_indices = np.indices(self.y.shape)[0]
+
+        self.n_samples = X.shape[0]
+        self.n_features = X.shape[1]
+
+        self.random_state = random_state
+        srand(random_state)
+
+        self.root_impurity = self.impurity(self.y)
+
+        self.proj_dims = max(int(max_features * X.shape[1]), 1)
+        self.n_non_zeros = max(int(self.proj_dims * feature_combinations), 1)
+
     cdef double impurity(self, double[:] y) nogil:
         cdef int length = y.shape[0]
         cdef double dlength = y.shape[0]
