@@ -16,49 +16,64 @@ from libcpp.pair cimport pair
 
 from cython.parallel import prange
 
-# TODO: Replace this once we parallelize the tree, since rand is not thread safe.
-#from libc.stdlib import rand_int
+# TODO: rand not thread safe, replace with sklearn's utils when merging code
+from libc.stdlib cimport rand, srand
 
 # 0 < t < len(y)
 
+cdef void argsort(double[:] y, int[:] idx) nogil:
 
-cdef class BaseObliqueSplitter:
-
-    cdef void argsort(self, double[:] y, int[:] idx) nogil:
-
-        cdef int length = y.shape[0]
-        cdef int i = 0
-        cdef pair[double, int] p
-        cdef vector[pair[double, int]] v
+    cdef int length = y.shape[0]
+    cdef int i = 0
+    cdef pair[double, int] p
+    cdef vector[pair[double, int]] v
         
-        for i in range(length):
-            p.first = y[i]
-            p.second = i
-            v.push_back(p)
+    for i in range(length):
+        p.first = y[i]
+        p.second = i
+        v.push_back(p)
 
-        stdsort(v.begin(), v.end())
+    stdsort(v.begin(), v.end())
 
-        for i in range(length):
-            idx[i] = v[i].second
+    for i in range(length):
+        idx[i] = v[i].second
 
-    cdef (int, int) argmin(self, double[:, :] A) nogil:
-        cdef int N = A.shape[0]
-        cdef int M = A.shape[1]
-        cdef int i = 0
-        cdef int j = 0
-        cdef int min_i = 0
-        cdef int min_j = 0
-        cdef double minimum = A[0, 0]
+cdef (int, int) argmin(double[:, :] A) nogil:
+    cdef int N = A.shape[0]
+    cdef int M = A.shape[1]
+    cdef int i = 0
+    cdef int j = 0
+    cdef int min_i = 0
+    cdef int min_j = 0
+    cdef double minimum = A[0, 0]
 
-        for i in range(N):
-            for j in range(M):
+    for i in range(N):
+        for j in range(M):
 
-                if A[i, j] < minimum:
-                    minimum = A[i, j]
-                    min_i = i
-                    min_j = j
+            if A[i, j] < minimum:
+                minimum = A[i, j]
+                min_i = i
+                min_j = j
 
-        return (min_i, min_j)
+    return (min_i, min_j)
+
+cdef void matmul(double[:, :] A, double[:, :] B, double[:, :] res) nogil:
+
+    cdef int i, j, k
+    cdef int m, n, p
+
+    m = A.shape[0]
+    n = A.shape[1]
+    p = B.shape[1]
+
+    for i in range(m):
+        for j in range(p):
+
+            res[i, j] = 0
+            for k in range(n):
+                res[i, j] += A[i, k] * B[k, j]
+ 
+cdef class BaseObliqueSplitter:
 
     cdef double impurity(self, double[:] y) nogil:
         cdef int length = y.shape[0]
@@ -106,22 +121,7 @@ cdef class BaseObliqueSplitter:
         gini = (l_length / length) * left_gini + (r_length / length) * right_gini
         return gini
 
-    cdef void matmul(self, double[:, :] A, double[:, :] B, double[:, :] res) nogil:
-
-        cdef int i, j, k
-        cdef int m, n, p
-
-        m = A.shape[0]
-        n = A.shape[1]
-        p = B.shape[1]
-
-        for i in range(m):
-            for j in range(p):
-
-                res[i, j] = 0
-                for k in range(n):
-                    res[i, j] += A[i, k] * B[k, j]
-    
+   
     
     # TODO
     """
@@ -132,10 +132,8 @@ cdef class BaseObliqueSplitter:
     cdef void sample_proj_mat(self, double[:, :] X, double[:, :] proj_mat, double[:, :] proj_X):
         
         # Sample the projection matrix
-        
-
-
         pass
+
 
 
     # X, y are X/y relevant samples. sample_inds only passed in for sorting
@@ -179,7 +177,7 @@ cdef class BaseObliqueSplitter:
         # loop over columns of the matrix (projected feature dimensions)
         for j in range(0, proj_dims):
             # get the sorted indices along the rows (sample dimension)
-            self.argsort(X[:, j], idx_view)
+            argsort(X[:, j], idx_view)
 
             for i in range(0, n_samples):
                 temp_int = idx_view[i]
@@ -193,11 +191,11 @@ cdef class BaseObliqueSplitter:
                     Q_view[i, j] = self.score(y_sort_view, i)
 
         # Identify best split
-        (thresh_i, feature) = self.argmin(Q_view)
+        (thresh_i, feature) = argmin(Q_view)
       
         best_gini = Q_view[thresh_i, feature]
         # Sort samples by split feature
-        self.argsort(X[:, feature], idx_view)
+        argsort(X[:, feature], idx_view)
         for i in range(0, n_samples):
             temp_int = idx_view[i]
 
@@ -235,11 +233,11 @@ cdef class BaseObliqueSplitter:
 
     def test_argsort(self, y):
         idx = np.zeros(len(y), dtype=np.intc)
-        self.argsort(y, idx)
+        argsort(y, idx)
         return idx
 
     def test_argmin(self, M):
-        return self.argmin(M)
+        return argmin(M)
 
     def test_impurity(self, y):
         return self.impurity(y)
@@ -252,7 +250,7 @@ cdef class BaseObliqueSplitter:
 
     def test_matmul(self, A, B):
         res = np.zeros((A.shape[0], B.shape[1]), dtype=np.float64)
-        self.matmul(A, B, res)
+        matmul(A, B, res)
         return res
 
     def test(self):
