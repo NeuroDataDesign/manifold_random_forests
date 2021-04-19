@@ -123,7 +123,13 @@ cdef class BaseObliqueSplitter:
                     res[i, j] += A[i, k] * B[k, j]
     
     
-    cdef void sample_proj_mat(self, double[:, :] X, double[:, :] proj_mat, double[:, :] proj_X) nogil:
+    # TODO
+    """
+    C's rand function is not thread safe, so this block is currently with GIL.
+    When merging this code with sklearn, we can use their random number generator from their utils
+    But since I don't have that here with me, I'm using C's rand function for now.
+    """
+    cdef void sample_proj_mat(self, double[:, :] X, double[:, :] proj_mat, double[:, :] proj_X):
         
         # Sample the projection matrix
         
