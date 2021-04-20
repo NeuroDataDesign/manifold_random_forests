@@ -169,9 +169,9 @@ cdef class BaseObliqueSplitter:
 
         # Draw n non zeros & put into proj_mat
         for i in range(self.n_non_zeros):
-            feat = int(rand() / (RAND_MAX * n_features))
-            pdim = int(rand() / (RAND_MAX * proj_dims))
-            weight = 1 if rand() < 0.5 else -1
+            feat = rand() % n_features
+            pdim = rand() % proj_dims
+            weight = 1 if (rand() % 2 == 1) else -1
             
             proj_mat[feat, pdim] = weight 
         
