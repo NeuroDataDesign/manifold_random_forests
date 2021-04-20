@@ -41,13 +41,18 @@ then use Makefile recipe to build dev version. You'll need Cython installed.
 
     make build-dev
 
+Alpha Functionality
+-------------------
 
-Documentation and Usage
------------------------
+We can impose a Gabor or wavelet filter bank. To do so, install ``skimage`` and ``pywavelets``.
 
-The documentation can be found under the following links:
+    pip install scikit-image
+    pip install PyWavelets
 
-- for the [stable release](https://mne-hfo.readthedocs.io/en/stable/index.html)
-- for the [latest (development) version](https://mne-hfo.readthedocs.io/en/latest/index.html)
 
-Note: Functionality has been tested on MacOSX and Ubuntu.
+Using with Jupyter Notebook
+---------------------------
+
+To setup an ipykernel with jupyter notebook, then do:
+
+    python -m ipykernel install --name sklearn --user 

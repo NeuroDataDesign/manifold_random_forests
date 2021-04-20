@@ -6,7 +6,7 @@ jobs:
     docker:
       - image: circleci/python:3.8.1-buster
     environment:
-      CODECOV_TOKEN: "24ebd27b-4413-4e7e-acbd-46499658bd1e"
+      CODECOV_TOKEN: "cb142a98-9da3-4fc9-b6b5-ed62b9809d16"
     steps:
       - checkout
 
@@ -32,12 +32,13 @@ jobs:
             sudo pip install --upgrade pip
             sudo pip install pipenv
             pipenv install --skip-lock --dev
+            pipenv run make build-dev
 
       - run:
           name: Run unit and integration tests
           command: |
             pipenv run make pep
-            pipenv run pytest --cov=morf ./tests/ --cov-report=xml --cov-config=setup.cfg --verbose
+            pipenv run pytest --cov=oblique_forests ./tests/ --cov-report=xml --cov-config=setup.cfg --verbose
 
       - store_artifacts:
           path: ./coverage.xml
@@ -47,18 +48,18 @@ jobs:
           command: |
             bash <(curl -s https://codecov.io/bash)
 
-      - run:
-          name: Build the documentation
-          command: |
-            pipenv run make build-doc
+      # - run:
+      #     name: Build the documentation
+      #     command: |
+      #       pipenv run make build-doc
 
-      - persist_to_workspace:
-          root: docs/_build
-          paths: html
+      # - persist_to_workspace:
+      #     root: docs/_build
+      #     paths: html
 
-      - store_artifacts:
-          path: docs/_build/html/
-          destination: dev
+      # - store_artifacts:
+      #     path: docs/_build/html/
+      #     destination: dev
 #      - run:
 #          name: Check links
 #          command: |

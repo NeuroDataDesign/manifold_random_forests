@@ -12,6 +12,8 @@ matplotlib = ">=3.3"
 joblib = ">=1.0.0"
 tqdm = ">=4.59"
 cython = "*"
+scikit-image = "*"
+pywavelets = "*"
 
 [dev-packages]
 ipykernel = "*"
@@ -34,6 +36,8 @@ pipfile-requirements = "*"
 pandoc = "*"
 sphinx-autodoc-typehints = "*"
 typing-extensions = "*"
+autopep8 = "*"
+seaborn = "*"
 
 [requires]
 python_version = "3"

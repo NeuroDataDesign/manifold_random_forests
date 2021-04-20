@@ -1,13 +1,10 @@
 import numpy as np
-from numpy.testing import (
-        assert_almost_equal,
-        assert_allclose
-)
+from numpy.testing import assert_almost_equal, assert_allclose
 import pytest
 from oblique_forests.tree._split import BaseObliqueSplitter as BOS
 
-class TestBaseSplitter:
 
+class TestBaseSplitter:
     def test_argsort(self):
         b = BOS()
 
@@ -36,15 +33,36 @@ class TestBaseSplitter:
         assert 3 == i
         assert 4 == j
 
-    def test_impurity(self):
+    def test_matmul(self):
         
+        b = BOS()
+
+        A = np.zeros((3, 3), dtype=np.float64)
+        B = np.ones((3, 3), dtype=np.float64)
+        
+        for i in range(3):
+            for j in range(3):
+                A[i, j] = 3*i + j + 1
+        
+        res = b.test_matmul(A, B)
+
+        C = np.ones((3, 3), dtype=np.float64)
+        C[0] = 6
+        C[1] = 15
+        C[2] = 24
+
+        assert_allclose(C, res)
+
+
+    def test_impurity(self):
+
         """
-        First 2 
+        First 2
         Taken from SPORF's fpGiniSplitTest.h
         """
 
         b = BOS()
-        
+
         y = np.ones(6, dtype=np.float64) * 4
         imp = b.test_impurity(y)
         assert 0 == imp
@@ -55,7 +73,7 @@ class TestBaseSplitter:
 
         y = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype=np.float64)
         imp = b.test_impurity(y)
-        assert_almost_equal((2/3), imp)
+        assert_almost_equal((2 / 3), imp)
 
     def test_score(self):
 
@@ -70,10 +88,10 @@ class TestBaseSplitter:
         y[:3] = 0
         y[6:] = 2
         s = b.test_score(y, 3)
-        assert_almost_equal((1/3), s)
+        assert_almost_equal((1 / 3), s)
 
     def test_halfSplit(self):
-        
+
         b = BOS()
 
         y = np.ones(100, dtype=np.float64) * 4
@@ -84,13 +102,15 @@ class TestBaseSplitter:
 
         idx = np.array([i for i in range(100)], dtype=np.intc)
 
-        (feat, 
-         thresh, 
-         left_imp, 
-         left_idx, 
-         right_imp, 
-         right_idx,
-         improvement) = b.best_split(X, y, idx)
+        (
+            feat,
+            thresh,
+            left_imp,
+            left_idx,
+            right_imp,
+            right_idx,
+            improvement,
+        ) = b.best_split(X, y, idx)
         assert thresh == 7.5
         assert left_imp == 0
         assert right_imp == 0
@@ -107,28 +127,32 @@ class TestBaseSplitter:
         X[0] = 5
 
         idx = np.array([i for i in range(6)], dtype=np.intc)
-        
-        (feat1, 
-         thresh1, 
-         left_imp1, 
-         left_idx, 
-         right_imp1, 
-         right_idx,
-         improvement) = b.best_split(X, y, idx)
+
+        (
+            feat1,
+            thresh1,
+            left_imp1,
+            left_idx,
+            right_imp1,
+            right_idx,
+            improvement,
+        ) = b.best_split(X, y, idx)
 
         y = np.ones(6, dtype=np.float64) * 4
         y[-1] = 1
 
         X = np.ones((6, 1), dtype=np.float64) * 10
         X[-1] = 5
-        
-        (feat2, 
-         thresh2, 
-         left_imp2, 
-         left_idx, 
-         right_imp2, 
-         right_idx,
-         improvement) = b.best_split(X, y, idx)
+
+        (
+            feat2,
+            thresh2,
+            left_imp2,
+            left_idx,
+            right_imp2,
+            right_idx,
+            improvement,
+        ) = b.best_split(X, y, idx)
         assert feat1 == feat2
         assert thresh1 == thresh2
         assert left_imp1 + right_imp1 == left_imp2 + right_imp2
@@ -142,14 +166,16 @@ class TestBaseSplitter:
         X = np.array([[10, 5, 10, 5, 10, 5]], dtype=np.float64).T
         idx = np.array([i for i in range(6)], dtype=np.intc)
 
-        (feat, 
-         thresh, 
-         left_imp, 
-         left_idx, 
-         right_imp, 
-         right_idx,
-         improvement) = b.best_split(X, y, idx)
-  
+        (
+            feat,
+            thresh,
+            left_imp,
+            left_idx,
+            right_imp,
+            right_idx,
+            improvement,
+        ) = b.best_split(X, y, idx)
+
         assert 7.5 == thresh
         assert 0 < left_imp
         assert_almost_equal(left_imp, right_imp)
@@ -157,14 +183,16 @@ class TestBaseSplitter:
         X[:] = 8
         X[:3] = 4
 
-        (feat, 
-         thresh, 
-         left_imp, 
-         left_idx, 
-         right_imp, 
-         right_idx,
-         improvement) = b.best_split(X, y, idx)
-  
+        (
+            feat,
+            thresh,
+            left_imp,
+            left_idx,
+            right_imp,
+            right_idx,
+            improvement,
+        ) = b.best_split(X, y, idx)
+
         assert 6 == thresh
         assert 0 == left_imp
         assert 0 == right_imp
@@ -180,20 +208,17 @@ class TestBaseSplitter:
         X = np.array([[i for i in range(100)]], dtype=np.float64).T
         idx = np.array([i for i in range(100)], dtype=np.intc)
 
-        (feat, 
-         thresh, 
-         left_imp, 
-         left_idx, 
-         right_imp, 
-         right_idx,
-         improvement) = b.best_split(X, y, idx)
+        (
+            feat,
+            thresh,
+            left_imp,
+            left_idx,
+            right_imp,
+            right_idx,
+            improvement,
+        ) = b.best_split(X, y, idx)
 
         # Expect a split down the middle
         assert 49.5 == thresh
-        assert 0 == right_imp 
+        assert 0 == right_imp
         assert_almost_equal(0.18, left_imp)
-    
-
-
-
-
