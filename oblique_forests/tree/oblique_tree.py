@@ -538,10 +538,8 @@ class ObliqueTree:
         feature_importances_ : ndarray of shape (n_features,)
             Normalized importance (counts) of each feature.
         """
-        # XXX: Still raises error even when OTC instance is fitted
-        # check_is_fitted(self)
         importances = np.zeros((self.splitter.n_features,))
-        
+
         # Count number of times a feature is used in a projection across all nodes
         for node in self.nodes:
             importances[np.nonzero(node.proj_vec)] += 1
@@ -667,7 +665,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         tree_func = self._tree_class()
 
         # instantiate the tree and build it
-        self.tree = tree_func(
+        self.tree_ = tree_func(
             splitter,
             self.min_samples_split,
             self.min_samples_leaf,
@@ -675,7 +673,7 @@ class ObliqueTreeClassifier(BaseEstimator):
             self.min_impurity_split,
             self.min_impurity_decrease,
         )
-        self.tree.build()
+        self.tree_.build()
 
         return self
 
@@ -693,7 +691,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes : array of shape[n_samples]
             The indices for each test sample's final node in the oblique tree.
         """
-        pred_nodes = self.tree.predict(X).astype(int)
+        pred_nodes = self.tree_.predict(X).astype(int)
         return pred_nodes
 
     def predict(self, X, check_input=True):
@@ -716,7 +714,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes = self.apply(X)
         for k in range(len(pred_nodes)):
             id = pred_nodes[k]
-            preds[k] = self.tree.nodes[id].label
+            preds[k] = self.tree_.nodes[id].label
 
         return preds
 
@@ -740,7 +738,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes = self.apply(X)
         for k in range(len(preds)):
             id = pred_nodes[k]
-            preds[k] = self.tree.nodes[id].proba
+            preds[k] = self.tree_.nodes[id].proba
 
         return preds
 
@@ -778,6 +776,6 @@ class ObliqueTreeClassifier(BaseEstimator):
             Array of count-based feature importances.
         """
         # XXX: check_is_fitted raises error even when OTC instance is fitted
-        # check_is_fitted(self)
+        check_is_fitted(self)
 
-        return self.tree.compute_feature_importances()
+        return self.tree_.compute_feature_importances()
