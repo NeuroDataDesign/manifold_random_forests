@@ -4,7 +4,7 @@ from sklearn.ensemble._forest import ForestClassifier
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.fixes import _joblib_parallel_args
 
-from .tree.oblique_tree import ObliqueTreeClassifier
+from oblique_forests.tree.oblique_tree import ObliqueTreeClassifier
 
 
 class ObliqueForestClassifier(ForestClassifier):
@@ -92,3 +92,40 @@ class ObliqueForestClassifier(ForestClassifier):
         all_importances = np.mean(all_importances,
                                   axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
+
+    @property
+    def feature_importances2_(self):
+        """
+        Computes the importance of every unique feature used to make a split
+        in each tree of the forest.
+
+        Parameters
+        ----------
+        normalize : bool, default=True
+            A boolean to indicate whether to normalize feature importances.
+
+        Returns
+        -------
+        importances : array of shape [n_features]
+            Array of count-based feature importances.
+        """
+        # TODO: Parallelize this
+        # 1. Find all unique atoms in the forest
+        # 2. Compute number of times each atom appears across all trees
+        atoms = [node.proj_vec 
+                 for node in tree.tree.nodes 
+                    if node.proj_vec is not None
+                 for tree in self.estimators_ 
+                    if tree.tree.node_count > 1]
+        unique_atoms, counts = np.unique(atoms, axis=0, return_counts=True)
+        
+        # 3. An atom assigns importance to each feature based on count of atom usage
+        importances = np.zeros(self.n_features_, dtype=np.float64)
+        for atom, count in zip(unique_atoms, counts):
+            importances[np.nonzero(atom)] += count
+        
+        # 4. Average across atoms
+        if len(unique_atoms) > 0:
+            importances /= len(unique_atoms)
+
+        return importances
