@@ -17,7 +17,7 @@ from libcpp.pair cimport pair
 from cython.parallel import prange
 
 # TODO: rand not thread safe, replace with sklearn's utils when merging code
-from libc.stdlib cimport rand, srand
+from libc.stdlib cimport rand, srand, RAND_MAX 
 
 # 0 < t < len(y)
 
@@ -100,6 +100,8 @@ cdef class BaseObliqueSplitter:
         self.proj_dims = max(int(max_features * X.shape[1]), 1)
         self.n_non_zeros = max(int(self.proj_dims * feature_combinations), 1)
 
+        srand(np.random.randint(10000))
+
     cdef double impurity(self, double[:] y) nogil:
         cdef int length = y.shape[0]
         cdef double dlength = y.shape[0]
@@ -153,6 +155,9 @@ cdef class BaseObliqueSplitter:
     C's rand function is not thread safe, so this block is currently with GIL.
     When merging this code with sklearn, we can use their random number generator from their utils
     But since I don't have that here with me, I'm using C's rand function for now.
+
+    proj_mat & proj_X should be np.zeros()
+
     """
     cdef void sample_proj_mat(self, double[:, :] X, double[:, :] proj_mat, double[:, :] proj_X):
         
@@ -160,9 +165,17 @@ cdef class BaseObliqueSplitter:
         cdef int n_features = X.shape[1]
         cdef int proj_dims = proj_X.shape[1]
 
-        # Draw n non zeros
-        
+        cdef int i, feat, pdim
 
+        # Draw n non zeros & put into proj_mat
+        for i in range(self.n_non_zeros):
+            feat = int(rand() / (RAND_MAX * n_features))
+            pdim = int(rand() / (RAND_MAX * proj_dims))
+            weight = 1 if rand() < 0.5 else -1
+            
+            proj_mat[feat, pdim] = weight 
+        
+        matmul(X, proj_mat, proj_X)
 
     # X, y are X/y relevant samples. sample_inds only passed in for sorting
     # Will need to change X to not be proj_X rn
