@@ -183,3 +183,25 @@ def test_importances_raises():
     clf = OTC(random_state=0)
     with pytest.raises(ValueError):
         getattr(clf, 'feature_importances_')
+
+
+def test_importances2():
+    # XXX: Print-based checks
+    X, y = datasets.make_classification(n_samples=500,
+                                        n_features=10,
+                                        n_informative=3,
+                                        n_redundant=0,
+                                        n_repeated=0,
+                                        shuffle=False,
+                                        random_state=0)
+    
+    clf = OFC(random_state=0)
+    clf.fit(X, y)
+
+    # Test ArXiv paper implementation
+    imps = clf.feature_importances_
+    print(imps)
+
+    # Test Ronan's pseudocode implementation
+    imps2 = clf.feature_importances2_
+    print(imps2)

@@ -112,18 +112,18 @@ class ObliqueForestClassifier(ForestClassifier):
         # TODO: Parallelize this and see if there is an equivalent way to express this better
         # 1. Find all unique atoms in the forest
         # 2. Compute number of times each atom appears across all trees
-        atoms = [node.proj_vec 
-                 for tree in self.estimators_ if tree.tree.node_count > 1 
+        forest_projections = [node.proj_vec 
+                 for tree in self.estimators_ if tree.tree.node_count > 0 
                  for node in tree.tree.nodes if node.proj_vec is not None]
-        unique_atoms, counts = np.unique(atoms, axis=0, return_counts=True)
+        unique_projections, counts = np.unique(forest_projections, axis=0, return_counts=True)
         
         # 3. An atom assigns importance to each feature based on count of atom usage
         importances = np.zeros(self.n_features_, dtype=np.float64)
-        for atom, count in zip(unique_atoms, counts):
+        for atom, count in zip(unique_projections, counts):
             importances[np.nonzero(atom)] += count
         
         # 4. Average across atoms
-        if len(unique_atoms) > 0:
-            importances /= len(unique_atoms)
+        if len(unique_projections) > 0:
+            importances /= len(unique_projections)
 
         return importances
