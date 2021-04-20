@@ -156,9 +156,12 @@ cdef class BaseObliqueSplitter:
     """
     cdef void sample_proj_mat(self, double[:, :] X, double[:, :] proj_mat, double[:, :] proj_X):
         
-        # Sample the projection matrix
-        pass
+        cdef int n_samples = X.shape[0]
+        cdef int n_features = X.shape[1]
+        cdef int proj_dims = proj_X.shape[1]
 
+        # Draw n non zeros
+        
 
 
     # X, y are X/y relevant samples. sample_inds only passed in for sorting
