@@ -19,9 +19,15 @@ def configuration(parent_package="", top_path=None):  # noqa
         #  extra_link_args=["-Xpreprocessor", "-fopenmp"],
         language="c++",
     )
+    config.add_extension("_utils",
+                    sources=["_utils.pyx"],
+                    include_dirs=[numpy.get_include()],
+                    libraries=libraries,
+                    extra_compile_args=["-O3"],
+    )
 
     config.add_subpackage("tests")
-    # config.add_data_files("split.pxd")
+    config.add_data_files("_utils.pxd")
     return config
 
 
