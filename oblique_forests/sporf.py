@@ -109,14 +109,12 @@ class ObliqueForestClassifier(ForestClassifier):
         importances : array of shape [n_features]
             Array of count-based feature importances.
         """
-        # TODO: Parallelize this
+        # TODO: Parallelize this and see if there is an equivalent way to express this better
         # 1. Find all unique atoms in the forest
         # 2. Compute number of times each atom appears across all trees
         atoms = [node.proj_vec 
-                 for node in tree.tree.nodes 
-                    if node.proj_vec is not None
-                 for tree in self.estimators_ 
-                    if tree.tree.node_count > 1]
+                 for tree in self.estimators_ if tree.tree.node_count > 1 
+                 for node in tree.tree.nodes if node.proj_vec is not None]
         unique_atoms, counts = np.unique(atoms, axis=0, return_counts=True)
         
         # 3. An atom assigns importance to each feature based on count of atom usage
