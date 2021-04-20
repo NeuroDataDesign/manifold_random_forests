@@ -471,3 +471,13 @@ class MorfObliqueSplitter(ObliqueSplitter):
         proj_X = self.X[sample_inds, :] @ proj_mat
 
         return proj_X, proj_mat
+
+# %%
+if __name__ == "__main__":
+    import numpy as np
+    from scipy.linalg import toeplitz
+    from scipy.signal import convolve2d
+
+    X = np.random.randint(5, size=(3, 3))
+    k = np.ones((2, 2))
+# %%

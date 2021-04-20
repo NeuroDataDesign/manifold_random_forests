@@ -92,4 +92,3 @@ class ObliqueForestClassifier(ForestClassifier):
         all_importances = np.mean(all_importances,
                                   axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
-
