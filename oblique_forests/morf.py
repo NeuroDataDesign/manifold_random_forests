@@ -204,18 +204,30 @@ class Conv2DObliqueForestClassifier(ForestClassifier):  # noqa
         importances : array of shape [n_features]
             Array of count-based feature importances.
         """
-        check_is_fitted(self)
-
-        all_importances = Parallel(
-            n_jobs=self.n_jobs, **_joblib_parallel_args(prefer="threads")
-        )(
-            delayed(getattr)(tree, "feature_importances_")
+        # TODO: Parallelize this and see if there is an equivalent way to express this better
+        # 1. Find all unique atoms in the forest
+        # 2. Compute number of times each atom appears across all trees
+        forest_projections = [
+            node.proj_vec
             for tree in self.estimators_
-            if tree.tree_.node_count > 1
+            if tree.tree_.node_count > 0
+            for node in tree.tree_.nodes
+            if node.proj_vec is not None
+        ]
+        unique_projections, counts = np.unique(
+            forest_projections, axis=0, return_counts=True
         )
 
-        if not all_importances:
+        if counts.sum() == 0:
             return np.zeros(self.n_features_, dtype=np.float64)
 
-        all_importances = np.mean(all_importances, axis=0, dtype=np.float64)
-        return all_importances / np.sum(all_importances)
+        # 3. Count how many times each feature gets nonzero weight in unique projections
+        importances = np.zeros(self.n_features_)
+        for proj_vec, count in zip(unique_projections, counts):
+            importances[np.nonzero(proj_vec)] += count
+        
+        # 4. Normalize by number of unique projections
+        if len(unique_projections) > 0:
+            importances /= len(unique_projections)
+
+        return importances

@@ -555,14 +555,14 @@ def test_importances():
 
 
 def test_importances_raises():
-    # XXX: check_is_fitted does not work for our trees yet
     # Check if variable importance before fit raises ValueError.
     clf = OTC(random_state=0)
     with pytest.raises(ValueError):
         getattr(clf, "feature_importances_")
 
 
-def test_importances2():
+# def test_importances2():
+if __name__ == "__main__":
     # XXX: Print-based checks
     X, y = datasets.make_classification(
         n_samples=500,
@@ -577,10 +577,5 @@ def test_importances2():
     clf = OFC(random_state=0)
     clf.fit(X, y)
 
-    # Test ArXiv paper implementation
     imps = clf.feature_importances_
     print(imps)
-
-    # Test Ronan's pseudocode implementation
-    imps2 = clf.feature_importances2_
-    print(imps2)

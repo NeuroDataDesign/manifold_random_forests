@@ -10,6 +10,10 @@ from sklearn import datasets, metrics
 from sklearn.utils.validation import check_random_state
 
 from oblique_forests.tree.morf_split import Conv2DSplitter
+from oblique_forests.sporf import ObliqueForestClassifier as SPORF
+from oblique_forests.tree.oblique_tree import ObliqueTreeClassifier as OTC
+from oblique_forests.morf import Conv2DObliqueForestClassifier as MORF
+from oblique_forests.tree.morf_tree import Conv2DObliqueTreeClassifier
 
 # toy sample
 X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1]]
@@ -43,7 +47,7 @@ def test_convolutional_splitter():
     y[:25] = 0
 
     splitter = Conv2DSplitter(
-        X,
+        X.reshape(n, -1),
         y,
         max_features=1,
         feature_combinations=1.5,
@@ -52,4 +56,60 @@ def test_convolutional_splitter():
         image_width=d,
         patch_height_max=2,
         patch_height_min=2,
+        patch_width_max=3,
+        patch_width_min=3,
     )
+
+    splitter.sample_proj_mat(splitter.indices)
+
+
+if __name__ == "__main__":
+
+    test_convolutional_splitter()
+
+    # from sklearn.datasets import fetch_openml
+    from keras.datasets import mnist
+    import time
+
+    (X_train, y_train), (X_test, y_test) = mnist.load_data()
+
+    # Get 100 samples of 3s and 5s
+    num = 100
+    threes = np.where(y_train == 3)[0][:num]
+    fives = np.where(y_train == 5)[0][:num]
+    train_idx = np.concatenate((threes, fives))
+
+    # Subset train data
+    Xtrain = X_train[train_idx]
+    ytrain = y_train[train_idx]
+
+    # Apply random shuffling
+    permuted_idx = np.random.permutation(len(train_idx))
+    Xtrain = Xtrain[permuted_idx]
+    ytrain = ytrain[permuted_idx]
+
+    # Subset test data
+    test_idx = np.where(y_test == 3)[0]
+    Xtest = X_test[test_idx]
+    ytest = y_test[test_idx]
+
+    print(f"-----{2 * num} samples")
+
+    clf = OTC(random_state=0)
+    start = time.time()
+    clf.fit(Xtrain.reshape(Xtrain.shape[0], -1), ytrain)
+    elapsed = time.time() - start
+    print(elapsed)
+    print(f"SPORF Tree: {elapsed} sec")
+
+    clf = Conv2DObliqueTreeClassifier(image_height=28, image_width=28, random_state=0)
+    start = time.time()
+    clf.fit(Xtrain.reshape(Xtrain.shape[0], -1), ytrain)
+    elapsed = time.time() - start
+    print(f"MORF Tree: {elapsed} sec")
+    
+    clf = SPORF(n_estimators=100, random_state=0)
+    start = time.time()
+    clf.fit(Xtrain.reshape(Xtrain.shape[0], -1), ytrain)
+    elapsed = time.time() - start
+    print(f"SPORF: {elapsed} sec")

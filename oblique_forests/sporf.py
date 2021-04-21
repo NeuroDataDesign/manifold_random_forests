@@ -116,38 +116,6 @@ class ObliqueForestClassifier(ForestClassifier):
         importances : array of shape [n_features]
             Array of count-based feature importances.
         """
-        check_is_fitted(self)
-
-        all_importances = Parallel(
-            n_jobs=self.n_jobs, **_joblib_parallel_args(prefer="threads")
-        )(
-            delayed(getattr)(tree, "feature_importances_")
-            for tree in self.estimators_
-            if tree.tree_.node_count > 1
-        )
-
-        if not all_importances:
-            return np.zeros(self.n_features_, dtype=np.float64)
-
-        all_importances = np.mean(all_importances, axis=0, dtype=np.float64)
-        return all_importances / np.sum(all_importances)
-
-    @property
-    def feature_importances2_(self):
-        """
-        Computes the importance of every unique feature used to make a split
-        in each tree of the forest.
-
-        Parameters
-        ----------
-        normalize : bool, default=True
-            A boolean to indicate whether to normalize feature importances.
-
-        Returns
-        -------
-        importances : array of shape [n_features]
-            Array of count-based feature importances.
-        """
         # TODO: Parallelize this and see if there is an equivalent way to express this better
         # 1. Find all unique atoms in the forest
         # 2. Compute number of times each atom appears across all trees
@@ -155,19 +123,22 @@ class ObliqueForestClassifier(ForestClassifier):
             node.proj_vec
             for tree in self.estimators_
             if tree.tree_.node_count > 0
-            for node in tree.tree.nodes
+            for node in tree.tree_.nodes
             if node.proj_vec is not None
         ]
         unique_projections, counts = np.unique(
             forest_projections, axis=0, return_counts=True
         )
 
-        # 3. An atom assigns importance to each feature based on count of atom usage
-        importances = np.zeros(self.n_features_, dtype=np.float64)
-        for atom, count in zip(unique_projections, counts):
-            importances[np.nonzero(atom)] += count
+        if counts.sum() == 0:
+            return np.zeros((self.n_features_), dtype=np.float64)
 
-        # 4. Average across atoms
+        # 3. Count how many times each feature gets nonzero weight in unique projections
+        importances = np.zeros((self.n_features_), dtype=np.float64)
+        for proj_vec, count in zip(unique_projections, counts):
+            importances[np.nonzero(proj_vec)] += count
+        
+        # 4. Normalize by number of unique projections
         if len(unique_projections) > 0:
             importances /= len(unique_projections)
 

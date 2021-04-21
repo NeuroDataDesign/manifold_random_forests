@@ -529,26 +529,34 @@ class ObliqueTree:
 
         return predictions
 
-    def compute_feature_importances(self, normalize=True):
+    def compute_feature_importances(self):
         """
         Computes the importance of each feature (aka variable).
 
+        Parameters
+        ----------
+        unique_projections : ndarray of shape (n_proj, n_features)
+            Array of unique sampling projection vectors.
+
         Returns
         -------
-        feature_importances_ : ndarray of shape (n_features,)
-            Normalized importance (counts) of each feature.
+        importances : ndarray of shape (n_features,)
+            Normalized importance of each feature of the data matrix.
         """
+        projections = [
+            node.proj_vec for node in self.nodes if node.proj_vec is not None
+        ]
+        unique_projections, counts = np.unique(projections, axis=0, return_counts=True)
+
+        if counts.sum() == 0:
+            return np.zeros((self.splitter.n_features,))
+
         importances = np.zeros((self.splitter.n_features,))
+        for proj_vec, count in zip(unique_projections, counts):
+            importances[np.nonzero(proj_vec)] += count
 
-        # Count number of times a feature is used in a projection across all nodes
-        for node in self.nodes:
-            importances[np.nonzero(node.proj_vec)] += 1
-
-        if normalize:
-            normalizer = np.sum(importances)
-            if normalizer > 0.0:
-                # Avoid dividing by zero (e.g., when root is pure)
-                importances /= normalizer
+        if len(unique_projections) > 0:
+            importances /= len(unique_projections)
 
         return importances
 
@@ -775,7 +783,40 @@ class ObliqueTreeClassifier(BaseEstimator):
         feature_importances_ : ndarray of shape (n_features,)
             Array of count-based feature importances.
         """
-        # XXX: check_is_fitted raises error even when OTC instance is fitted
         check_is_fitted(self)
 
         return self.tree_.compute_feature_importances()
+
+    def compute_projection_counts(self, unique_projections=None):
+        """
+        Counts the number of times each unique projection in the tree appears.
+
+        Parameters
+        ----------
+        unique_projections : ndarray of shape (n_proj,), optional
+            Array of unique projections to count, by default None
+
+        Returns
+        -------
+        projection_counts : ndarray of shape (n_proj,)
+            Counts of each unique projection used in this tree.
+        """
+        check_is_fitted(self)
+
+        if unique_projections is None:
+            projections = [
+                node.proj_vec
+                for node in self.tree_.nodes
+                if node.proj_vec is not None
+            ]
+            unique_projections, counts = np.unique(projections, axis=0, return_counts=True)
+            return counts, unique_projections
+        
+        # TODO: see if joblib will speed up at all for this for loop
+        n_proj = len(unique_projections)
+        counts = np.zeros(n_proj)
+        for node in self.tree_.nodes:
+            projection_idx = np.where((unique_projections == node.proj_vec).all(axis=1))
+            counts[projection_idx] += 1
+        
+        return counts, unique_projections
