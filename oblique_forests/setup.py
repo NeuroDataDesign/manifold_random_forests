@@ -15,7 +15,7 @@ def configuration(parent_package="", top_path=None):  # noqa
 
     # submodules which have their own setup.py
     config.add_subpackage("tree")
-
+    config.add_subpackage("utils")
     # add the test directory
     # config.add_subpackage('tests')
 
