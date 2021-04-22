@@ -22,6 +22,8 @@ from ._utils cimport rand_uniform
 from ._utils cimport RAND_R_MAX
 from ._utils cimport safe_realloc
 
+cdef double INFINITY = np.inf
+
 cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.impurity_left = INFINITY
     self.impurity_right = INFINITY

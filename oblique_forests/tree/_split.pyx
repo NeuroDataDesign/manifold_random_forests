@@ -17,7 +17,7 @@ from libcpp.pair cimport pair
 from cython.parallel import prange
 
 # TODO: rand not thread safe, replace with sklearn's utils when merging code
-from libc.stdlib cimport rand, srand, RAND_MAX 
+#from libc.stdlib cimport rand, srand, RAND_MAX 
 
 from ._utils cimport rand_int, rand_uniform
 
@@ -82,9 +82,21 @@ cdef void matmul(DTYPE_t[:, :] A, DTYPE_t[:, :] B, DTYPE_t[:, :] res) nogil:
  
 cdef class BaseObliqueSplitter:
 
-    def __init__(self, DTYPE_t[:, :] X, 
+    cdef DTYPE_t[:, :] X
+    cdef DOUBLE_t[:] y
+    cdef DTYPE_t max_features
+    cdef DTYPE_t feature_combinations
+    cdef UINT32_t random_state
+    
+    cdef SIZE_t n_samples
+    cdef SIZE_t n_features
+    cdef SIZE_t proj_dims
+    cdef SIZE_t n_non_zeros
+
+
+    def __cinit__(self, DTYPE_t[:, :] X, 
             DOUBLE_t[:] y, DTYPE_t max_features, 
-            DTYPE_t feature_combinations, SIZE_t random_state):
+            DTYPE_t feature_combinations, UINT32_t random_state):
 
         self.X = X
         self.y = y
@@ -92,23 +104,19 @@ cdef class BaseObliqueSplitter:
         self.feature_combinations = feature_combinations
         self.random_state = random_state
 
+        """
         classes = np.array(np.unique(y), dtype=np.intp)
         self.n_classes = len(classes)
         self.class_indices = np.indices(self.y.shape)[0]
+        """
 
         self.n_samples = X.shape[0]
         self.n_features = X.shape[1]
 
-        self.random_state = random_state
-        srand(random_state)
-
-        self.root_impurity = self.impurity(self.y)
+        #self.root_impurity = self.impurity(self.y)
 
         self.proj_dims = max(np.ceil(max_features * X.shape[1]), 1)
         self.n_non_zeros = max(np.ceil(self.proj_dims * feature_combinations), 1)
-
-        # Seeding random number generator randomly???
-        srand(np.random.randint(10000))
 
     cdef DOUBLE_t impurity(self, DOUBLE_t[:] y) nogil:
         cdef SIZE_t length = y.shape[0]
@@ -165,7 +173,7 @@ cdef class BaseObliqueSplitter:
     proj_mat & proj_X should be np.zeros()
 
     """
-    cdef void sample_proj_mat(self, DTYPE_t[:, :] X, DTYPE_t[:, :] proj_mat, DTYPE_t[:, :] proj_X):
+    cdef void sample_proj_mat(self, DTYPE_t[:, :] X, DTYPE_t[:, :] proj_mat, DTYPE_t[:, :] proj_X) nogil:
         
         cdef SIZE_t n_samples = X.shape[0]
         cdef SIZE_t n_features = X.shape[1]
@@ -175,9 +183,9 @@ cdef class BaseObliqueSplitter:
 
         # Draw n non zeros & put SIZE_to proj_mat
         for i in range(self.n_non_zeros):
-            feat = rand() % n_features
-            pdim = rand() % proj_dims
-            weight = 1 if (rand() % 2 == 1) else -1
+            feat = rand_int(0, n_features, &self.random_state)
+            pdim = rand_int(0, proj_dims, &self.random_state)
+            weight = 1 if (rand_int(0, 1, &self.random_state) % 2 == 1) else -1
             
             proj_mat[feat, pdim] = weight 
         
