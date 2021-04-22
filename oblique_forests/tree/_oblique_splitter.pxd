@@ -36,13 +36,11 @@ cdef struct ObliqueSplitRecord:
     double impurity_left   # Impurity of the left split.
     double impurity_right  # Impurity of the right split.
 
-    # list<double>
-    double proj_vec       # Projection vector to apply to data sample. It 
+    double* proj_vec       # Projection vector to apply to data sample. It 
                            # can be weighted, where the weights correspond to 
                            # a different basis.
 
     # NOTE: differs from SplitInfo inside `oblique_base.py`
-
     # TODO:
     # - figure out how to instantiate the type for a hashmap of string -> numbers/strings 
     #   that represent inputs to a say Gabor Kernel
@@ -63,6 +61,8 @@ cdef class BaseObliqueSplitter:
 
     # SPORF extra parameters
     cdef public double feature_combinations  # Number of features to combine
+    cdef SIZE_t proj_dims                # size of the projected dimension
+    cdef SIZE_t n_non_zeros              # density (i.e. number of non-zeros) of the projection vector
 
     cdef object random_state             # Random state
     cdef UINT32_t rand_r_state           # sklearn_rand_r random number state

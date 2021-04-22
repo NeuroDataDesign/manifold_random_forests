@@ -3,16 +3,26 @@
 #cython: wraparound=False
 
 cimport cython
-
 import numpy as np
+cimport numpy as np
+np.import_array()
 
-from libcpp.unordered_map cimport unordered_map
 from cython.operator import dereference, postincrement
-
+from libcpp.unordered_map cimport unordered_map
 from libcpp.algorithm cimport sort as stdsort
-
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
+
+from ._criterion cimport Criterion
+
+from libc.stdlib cimport free
+from libc.stdlib cimport qsort
+from libc.string cimport memcpy
+from libc.string cimport memset
+
+# allow sparse operations
+# from scipy.sparse import csc_matrixfrom ._criterion cimport Criterion
+# from scipy.sparse import csc_matrix
 
 from cython.parallel import prange
 
@@ -24,6 +34,13 @@ from ._utils cimport safe_realloc
 
 cdef double INFINITY = np.inf
 
+# Mitigate precision differences between 32 bit and 64 bit
+cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
+
+# Constant to switch between algorithm non zero value extract algorithm
+# in SparseSplitter
+# cdef DTYPE_t EXTRACT_NNZ_SWITCH = 0.1
+
 cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.impurity_left = INFINITY
     self.impurity_right = INFINITY
@@ -31,7 +48,7 @@ cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.feature = 0
     self.threshold = 0.
     self.improvement = -INFINITY
-    self.proj_vec = 0
+    self.proj_vec = NULL
 
 cdef void argsort(double[:] y, int[:] idx) nogil:
 
@@ -117,7 +134,6 @@ cdef class BaseObliqueSplitter:
         random_state : object
             The user inputted random state to be used for pseudo-randomness
         """
-
         self.criterion = criterion
 
         self.samples = NULL
@@ -138,18 +154,17 @@ cdef class BaseObliqueSplitter:
         
         # copied from original Parth's oblique split
         # self.root_impurity = self.impurity(self.y)
-        # cdef double proj_dims = 1 #max(self.max_features * self.n_features, 1)
-        # cdef double n_non_zeros = 1# max(self.proj_dims * self.feature_combinations, 1)
-        # self.proj_dims = proj_dims
-        # self.n_non_zeros = n_non_zeros
+        cdef SIZE_t proj_dims = int(max(self.max_features * self.n_features, 1))
+        cdef SIZE_t n_non_zeros = int(max(self.proj_dims * self.feature_combinations, 1))
+        self.proj_dims = proj_dims
+        self.n_non_zeros = n_non_zeros
 
-    # def __dealloc__(self):
-    #     """Destructor."""
-
-    #     free(self.samples)
-    #     free(self.features)
-    #     free(self.constant_features)
-    #     free(self.feature_values)
+    def __dealloc__(self):
+        """Destructor."""
+        free(self.samples)
+        free(self.features)
+        free(self.constant_features)
+        free(self.feature_values)
 
     def __getstate__(self):
         return {}
@@ -244,7 +259,6 @@ cdef class BaseObliqueSplitter:
         weighted_n_node_samples : ndarray, dtype=double pointer
             The total weight of those samples
         """
-
         self.start = start
         self.end = end
 
@@ -267,7 +281,6 @@ cdef class BaseObliqueSplitter:
 
         It should return -1 upon errors.
         """
-
         pass
 
     cdef void node_value(self, double* dest) nogil:
@@ -277,8 +290,60 @@ cdef class BaseObliqueSplitter:
 
     cdef double node_impurity(self) nogil:
         """Return the impurity of the current node."""
-
         return self.criterion.node_impurity()
+
+    cdef void sample_proj_mat(self, double[:, :] X, 
+                              double[:, :] proj_mat, double[:, :] proj_X) nogil:
+        pass
+
+    cdef double impurity(self, double[:] y) nogil:
+        pass
+
+
+
+cdef class DenseObliqueSplitter(BaseObliqueSplitter):
+    cdef const DTYPE_t[:, :] X
+
+    cdef np.ndarray X_idx_sorted
+    cdef INT32_t* X_idx_sorted_ptr
+    cdef SIZE_t X_idx_sorted_stride
+    cdef SIZE_t n_total_samples
+    cdef SIZE_t* sample_mask
+
+    def __cinit__(self, Criterion criterion, SIZE_t max_features,
+                  SIZE_t min_samples_leaf, double min_weight_leaf,
+                  double feature_combinations,
+                  object random_state):
+
+        self.X_idx_sorted_ptr = NULL
+        self.X_idx_sorted_stride = 0
+        self.sample_mask = NULL
+    cdef int init(self,
+                  object X,
+                  const DOUBLE_t[:, ::1] y,
+                  DOUBLE_t* sample_weight,
+                  np.ndarray X_idx_sorted=None) except -1:
+        """Initialize the splitter
+
+        Returns -1 in case of failure to allocate memory (and raise MemoryError)
+        or 0 otherwise.
+        """
+
+        # Call parent init
+        BaseObliqueSplitter.init(self, X, y, sample_weight)
+
+        self.X = X
+        return 0
+
+cdef class ObliqueSplitter(DenseObliqueSplitter):
+    def __reduce__(self):
+        """Enable pickling the splitter."""
+        return (ObliqueSplitter, (self.criterion,
+                               self.max_features,
+                               self.min_samples_leaf,
+                               self.min_weight_leaf,
+                               self.feature_combinations,
+                               self.random_state), self.__getstate__())
 
     cdef double impurity(self, double[:] y) nogil:
         cdef int length = y.shape[0]
@@ -307,101 +372,102 @@ cdef class BaseObliqueSplitter:
             postincrement(it)
 
         return gini
+
     cdef void sample_proj_mat(self, double[:, :] X, 
                               double[:, :] proj_mat, double[:, :] proj_X) nogil:
-        pass
+        """Get the projection matrix and it fits the transform to the samples of interest.
 
+        # TODO 
+        C's rand function is not thread safe, so this block is currently with GIL.
+        When merging this code with sklearn, we can use their random number generator from their utils
+        But since I don't have that here with me, I'm using C's rand function for now.
 
+        proj_mat & proj_X should be np.zeros()
 
-# cdef class DenseObliqueSplitter(BaseObliqueSplitter):
-#     cdef const DTYPE_t[:, :] X
+        """
+        cdef UINT32_t* random_state = &self.rand_r_state
+        cdef UINT32_t n_non_zeros = self.n_non_zeros
+        cdef SIZE_t proj_dims = self.proj_dims
 
-#     cdef np.ndarray X_idx_sorted
-#     cdef INT32_t* X_idx_sorted_ptr
-#     cdef SIZE_t X_idx_sorted_stride
-#     cdef SIZE_t n_total_samples
-#     cdef SIZE_t* sample_mask
+        # if proj_dims != proj_mat.shape[1]:
+        #     return -1
 
-#     def __cinit__(self, Criterion criterion, SIZE_t max_features,
-#                   SIZE_t min_samples_leaf, double min_weight_leaf,
-#                   double feature_combinations,
-#                   object random_state):
-
-#         self.X_idx_sorted_ptr = NULL
-#         self.X_idx_sorted_stride = 0
-#         self.sample_mask = NULL
-#     cdef int init(self,
-#                   object X,
-#                   const DOUBLE_t[:, ::1] y,
-#                   DOUBLE_t* sample_weight,
-#                   np.ndarray X_idx_sorted=None) except -1:
-#         """Initialize the splitter
-
-#         Returns -1 in case of failure to allocate memory (and raise MemoryError)
-#         or 0 otherwise.
-#         """
-
-#         # Call parent init
-#         Splitter.init(self, X, y, sample_weight)
-
-#         self.X = X
-#         return 0
-
-# cdef class ObliqueSplitter(DenseObliqueSplitter):
-#     def __reduce__(self):
-#         """Enable pickling the splitter."""
-#         return (ObliqueSplitter, (self.criterion,
-#                                self.max_features,
-#                                self.min_samples_leaf,
-#                                self.min_weight_leaf,
-#                                self.feature_combinations,
-#                                self.random_state), self.__getstate__())
-
-#     cdef void sample_proj_mat(self, double[:, :] X, 
-#                               double[:, :] proj_mat, double[:, :] proj_X) nogil:
-#         """Get the projection matrix and it fits the transform to the samples of interest.
-
-#         # TODO 
-#         C's rand function is not thread safe, so this block is currently with GIL.
-#         When merging this code with sklearn, we can use their random number generator from their utils
-#         But since I don't have that here with me, I'm using C's rand function for now.
-
-#         proj_mat & proj_X should be np.zeros()
-
-#         """
-#         pass
-        # cdef UINT32_t* random_state = &self.rand_r_state
-
-        # # TODO: ask Parth how to fix this
-        # cdef int n_non_zeros = 5 # &self.n_non_zeros
-
-        # cdef int n_samples = X.shape[0]
-        # cdef int n_features = X.shape[1]
-        # cdef int proj_dims = proj_X.shape[1]
+        cdef SIZE_t n_samples = X.shape[0]
+        cdef SIZE_t n_features = X.shape[1]
         
-        # # declare indexes
-        # cdef int idx, feat_i, proj_i
+        # declare indexes
+        cdef int idx, feat_i, proj_i
 
-        # # declare weight types
-        # cdef int weight
+        # declare weight types
+        cdef int weight
 
-        # # Draw n non zeros & put into proj_mat
-        # for idx in prange(0, n_non_zeros, nogil=True):
-        #     # Draw a feature at random
-        #     feat_i = rand_int(0, n_features, random_state)
-        #     proj_i = rand_int(0, proj_dims, random_state)
+        # Draw n non zeros & put into proj_mat
+        for idx in prange(0, n_non_zeros, nogil=True):
+            # Draw a feature at random
+            feat_i = rand_int(0, n_features, random_state)
+            proj_i = rand_int(0, proj_dims, random_state)
 
-        #     # set weights to +/- 1
-        #     weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
-        #     proj_mat[feat_i, proj_i] = weight 
+            # set weights to +/- 1
+            weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
+            proj_mat[feat_i, proj_i] = weight 
         
-        # matmul(X, proj_mat, proj_X)
+        matmul(X, proj_mat, proj_X)
+
+    cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
+                        SIZE_t* n_constant_features) nogil except -1:
+        """Find the best split on node samples[start:end]
+
+        Returns -1 in case of failure to allocate memory (and raise MemoryError)
+        or 0 otherwise.
+        """   
+        cdef SIZE_t* samples = self.samples
+        cdef SIZE_t start = self.start
+        cdef SIZE_t end = self.end
+
+        cdef SIZE_t* features = self.features
+        cdef SIZE_t* constant_features = self.constant_features
+        cdef SIZE_t n_features = self.n_features
+
+        cdef DTYPE_t* Xf = self.feature_values
+        cdef SIZE_t max_features = self.max_features
+        cdef SIZE_t min_samples_leaf = self.min_samples_leaf
+        cdef double min_weight_leaf = self.min_weight_leaf
+        cdef UINT32_t* random_state = &self.rand_r_state
+
+        cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
+        cdef SIZE_t* sample_mask = self.sample_mask
+
+        # keep track of split record for current node and the best split
+        # found among the sampled projection vectors
+        cdef ObliqueSplitRecord best, current
+
+        # instantiate the split records
+        _init_split(&best, end)
+
+        cdef double current_proxy_improvement = -INFINITY
+        cdef double best_proxy_improvement = -INFINITY
+
+        cdef SIZE_t f_i = n_features
+        cdef SIZE_t f_j
+        cdef SIZE_t p
+        cdef SIZE_t feature_idx_offset
+        cdef SIZE_t feature_offset
+        cdef SIZE_t i
+        cdef SIZE_t j
+
+        cdef SIZE_t n_visited_features = 0
+        # Number of features discovered to be constant during the split search
+        cdef SIZE_t n_found_constants = 0
+        # Number of features known to be constant and drawn without replacement
+        cdef SIZE_t n_drawn_constants = 0
+        cdef SIZE_t n_known_constants = n_constant_features[0]
+        # n_total_constants = n_known_constants + n_found_constants
+        cdef SIZE_t n_total_constants = n_known_constants
+        cdef DTYPE_t current_feature_value
+        cdef SIZE_t partition_end
 
 
-
-    # X, y are X/y relevant samples. sample_inds only passed in for sorting
-    # Will need to change X to not be proj_X rn
-    # cpdef node_split(self, double[:, :] X, double[:] y, int[:] sample_inds):
+    # cpdef best_split(self, double[:, :] X, double[:] y, int[:] sample_inds):
     #     """Find the optimal split for a set of samples.
     
     #     """
