@@ -2,7 +2,7 @@ import numpy as np
 from numpy.testing import assert_almost_equal, assert_allclose
 import pytest
 from oblique_forests.tree._split import BaseObliqueSplitter as BOS
-
+from oblique_forests.tree._oblqique_splitter import ObliqueSplitter
 
 class TestBaseSplitter:
     def test_argsort(self):

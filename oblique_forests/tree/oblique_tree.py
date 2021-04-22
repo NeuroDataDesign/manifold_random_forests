@@ -5,6 +5,7 @@ from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from ._split import BaseObliqueSplitter
+from ._oblique_splitter import ObliqueSplitter as newObliqueSplitter
 from .oblique_base import BaseManifoldSplitter, Node, SplitInfo, StackRecord
 
 
@@ -631,7 +632,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         ObliqueTreeClassifier
             The fit classifier.
         """
-        splitter = ObliqueSplitter(
+        splitter = newObliqueSplitter(
             X, y, self.max_features, self.feature_combinations, self.random_state
         )
         self.n_classes = splitter.n_classes
