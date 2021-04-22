@@ -137,7 +137,7 @@ class ObliqueForestClassifier(ForestClassifier):
         importances = np.zeros((self.n_features_), dtype=np.float64)
         for proj_vec, count in zip(unique_projections, counts):
             importances[np.nonzero(proj_vec)] += count
-        
+
         # 4. Normalize by number of unique projections
         if len(unique_projections) > 0:
             importances /= len(unique_projections)

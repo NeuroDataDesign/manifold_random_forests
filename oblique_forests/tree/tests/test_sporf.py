@@ -540,7 +540,7 @@ def test_importances():
 
     clf.fit(X, y)
     importances = clf.feature_importances_
-    n_important = np.sum(importances > 0.1)
+    n_important = np.sum(importances > 0.4)
 
     assert importances.shape[0] == 10, "Failed with SPORF"
     assert n_important == 3, "Failed with SPORF"
@@ -548,7 +548,7 @@ def test_importances():
     # Check on iris that importances are the same for all builders
     clf = OTC(random_state=0)
     clf.fit(iris.data, iris.target)
-    clf2 = OTC(random_state=0, max_leaf_nodes=len(iris.data))
+    clf2 = OTC(random_state=0, max_depth=len(iris.data))
     clf2.fit(iris.data, iris.target)
 
     assert_array_equal(clf.feature_importances_, clf2.feature_importances_)
@@ -559,23 +559,3 @@ def test_importances_raises():
     clf = OTC(random_state=0)
     with pytest.raises(ValueError):
         getattr(clf, "feature_importances_")
-
-
-# def test_importances2():
-if __name__ == "__main__":
-    # XXX: Print-based checks
-    X, y = datasets.make_classification(
-        n_samples=500,
-        n_features=10,
-        n_informative=3,
-        n_redundant=0,
-        n_repeated=0,
-        shuffle=False,
-        random_state=0,
-    )
-
-    clf = OFC(random_state=0)
-    clf.fit(X, y)
-
-    imps = clf.feature_importances_
-    print(imps)
