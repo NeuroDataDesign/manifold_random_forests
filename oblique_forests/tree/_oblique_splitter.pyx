@@ -7,11 +7,13 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
+"""
 from cython.operator import dereference, postincrement
 from libcpp.unordered_map cimport unordered_map
 from libcpp.algorithm cimport sort as stdsort
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
+"""
 
 from ._criterion cimport Criterion
 
@@ -51,6 +53,7 @@ cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.improvement = -INFINITY
     self.proj_vec = NULL
 
+"""
 cdef void argsort(double[:] y, int[:] idx) nogil:
 
     cdef int length = y.shape[0]
@@ -68,7 +71,6 @@ cdef void argsort(double[:] y, int[:] idx) nogil:
     for i in range(length):
         idx[i] = v[i].second
 
-"""
 cdef (int, int) argmin(double[:, :] A) nogil:
     cdef int N = A.shape[0]
     cdef int M = A.shape[1]
@@ -156,14 +158,9 @@ cdef class BaseObliqueSplitter:
 
         # SPORF parameters
         self.feature_combinations = feature_combinations
-        self.proj_mat = NULL
-        self.n_non_zeros = int(self.max_features * self.feature_combinations)
+        self.proj_mat = NULL # n_features x max_features matrix. There are max_features vectors.
+        self.n_non_zeros = max(int(self.max_features * self.feature_combinations), 1)
         
-        # copied from original Parth's oblique split
-        #cdef SIZE_t n_non_zeros = int(max(self.proj_dims * self.feature_combinations, 1))
-        #self.proj_dims = proj_dims
-        #self.n_non_zeros = n_non_zeros
-
     def __dealloc__(self):
         """Destructor."""
         free(self.samples)
@@ -253,10 +250,10 @@ cdef class BaseObliqueSplitter:
         self.sample_weight = sample_weight
         
         # Reset projection matrix to 0
-        for i in range(self.n_features):
-            safe_realloc(&self.proj_mat[i], self.max_features)
+        for i in range(self.max_features):
+            safe_realloc(&self.proj_mat[i], self.n_features)
 
-            for j in range(self.max_features):
+            for j in range(self.n_features):
                 self.proj_mat[i][j] = 0
 
  
@@ -343,7 +340,7 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         self.X_idx_sorted_ptr = NULL
         self.X_idx_sorted_stride = 0
         self.sample_mask = NULL
-        self.max_features = max_features
+        self.max_features = max_features # number of proj_vecs
         self.feature_combinations = feature_combinations
 
 
@@ -364,11 +361,11 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         self.X = X
 
         # TODO: throw memory error if this fails!
-        self.proj_mat = <DTYPE_t**> malloc(self.n_features * sizeof(DTYPE_t*))
-        for i in range(self.n_features):
-            safe_realloc(&self.proj_mat[i], self.max_features)
+        self.proj_mat = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
+        for i in range(self.max_features):
+            safe_realloc(&self.proj_mat[i], self.n_features)
 
-            for j in range(self.max_features):
+            for j in range(self.n_features):
                 self.proj_mat[i][j] = 0
 
         return 0
@@ -466,9 +463,9 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         for i in range(0, n_non_zeros):
 
             feat_i = rand_int(0, n_features, random_state)
-            proj_i = rand_int(0, n_features, random_state)
+            proj_i = rand_int(0, max_features, random_state)
+            weight = 1 if (rand_int(0, 1, random_state) == 1) else -1
 
-            weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
             proj_mat[feat_i][proj_i] = weight
     
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
@@ -482,21 +479,19 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
-        cdef SIZE_t n_sample_split = end - start
 
-        #cdef SIZE_t* features = self.features
-        #cdef SIZE_t* constant_features = self.constant_features
+        cdef SIZE_t* features = self.features
+        cdef SIZE_t* constant_features = self.constant_features
         cdef SIZE_t n_features = self.n_features
-        #cdef SIZE_t proj_dims = self.proj_dims
 
-        #cdef DTYPE_t* Xf = self.feature_values
-        #cdef SIZE_t max_features = self.max_features
-        #cdef SIZE_t min_samples_leaf = self.min_samples_leaf
-        #cdef double min_weight_leaf = self.min_weight_leaf
+        cdef DTYPE_t* Xf = self.feature_values
+        cdef SIZE_t max_features = self.max_features
+        cdef SIZE_t min_samples_leaf = self.min_samples_leaf
+        cdef double min_weight_leaf = self.min_weight_leaf
         cdef UINT32_t* random_state = &self.rand_r_state
 
-        #cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
-        #cdef SIZE_t* sample_mask = self.sample_mask
+        cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
+        cdef SIZE_t* sample_mask = self.sample_mask
 
         # keep track of split record for current node and the best split
         # found among the sampled projection vectors
@@ -507,45 +502,222 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
 
         cdef SIZE_t f
         cdef SIZE_t p
-        cdef SIZE_t feature_idx_offset
-        cdef SIZE_t feature_offset
         cdef SIZE_t i
         cdef SIZE_t j
+        cdef SIZE_t partition_end
+        cdef DTYPE_t temp_d
 
-        #cdef SIZE_t n_visited_features = 0
-        # Number of features discovered to be constant during the split search
-        #cdef SIZE_t n_found_constants = 0
-        # Number of features known to be constant and drawn without replacement
-        #cdef SIZE_t n_drawn_constants = 0
-        #cdef SIZE_t n_known_constants = n_constant_features[0]
-        # n_total_constants = n_known_constants + n_found_constants
-        #cdef SIZE_t n_total_constants = n_known_constants
-        #cdef DTYPE_t current_feature_value
-        #cdef SIZE_t partition_end
+        cdef DTYPE_t** proj_mat = self.proj_mat
+        cdef DTYPE_t* proj_vec
 
-        # NEW
-        # Variables for sampling projection matrix
-        #cdef np.ndarray[dtype=DTYPE_t, ndim=2] PX = np.zeros((n_features, proj_dims))
-        #cdef DTYPE_t[n_features] x
-
-
-
-        #cdef DTYPE_t PX[n_samples_split][proj_dims]
-        #cdef DTYPE_t[:, :] proj_X = PX
-
-        
-
-
-         # instantiate the split records
+        # instantiate the split records
         _init_split(&best, end)
 
-        
-
-
         # Sample the projection matrix
-
+        self.sample_proj_mat(proj_mat)
         
-        #for f in range(
+        # For every vector in the projection matrix
+        for f in range(max_features):
+            proj_vec = proj_mat[f]
+            current.feature = f
+            current.proj_vec = proj_mat[f]
+
+            # Compute linear combination of features
+            for i in range(start, end):
+                Xf[i] = 0
+                for j in range(n_features):
+                    Xf[i] += self.X[samples[i], j] * proj_vec[j]
+
+            # Sort the samples
+            sort(Xf + start, samples + start, end - start)
+
+            # Evaluate all splits
+            self.criterion.reset()
+            for p in range(start, end-1):
+
+                # invalid split
+                if (Xf[p + 1] <= Xf[p] + FEATURE_THRESHOLD):
+                    continue
+
+                current.pos = p
+
+                # reject if min_samples_leaf not guaranteed
+                if ((current.pos - start) < min_samples_leaf or 
+                    (end - current.pos) < min_samples_leaf):
+
+                    continue
+
+                # reject if min_weight_leaf not satisfied
+                if (self.criterion.weighted_n_left < min_weight_leaf or
+                    self.criterion.weighted_n_right < min_weight_leaf):
+
+                    continue
+
+                current_proxy_improvement = self.criterion.proxy_impurity_improvement()
+                
+                if current_proxy_improvement > best_proxy_improvement:
+                    best_proxy_improvement = current_proxy_improvement
+
+                    current.threshold = Xf[p - 1] / 2.0 + Xf[p] / 2.0
+
+                    if (current.threshold == Xf[p] or
+                        current.threshold == INFINITY or
+                        current.threshold == -INFINITY):
+                        
+                        current.threshold = Xf[p-1]
+
+                    best = current
+        
+        # Reorganize into samples[start:best.pos] + samples[best.pos:end]
+        if best.pos < end:
+            partition_end = end
+            p = start
+
+            while p < partition_end:
+                
+                # Account for projection vector
+                temp_d = 0
+                for j in range(n_features):
+                    temp_d += self.X[samples[p], j] * best.proj_vec[j]
+
+                if temp_d <= best.threshold:
+                    p += 1
+
+                else:
+                    partition_end -= 1
+                    samples[p], samples[partition_end] = samples[partition_end], samples[p]
+
+            self.criterion.reset()
+            self.criterion.update(best.pos)
+            best.improvement = self.criterion.impurity_improvement(impurity)
+            self.criterion.children_impurity(&best.impurity_left, &best.impurity_right)
+
+        # Skipping over constant features part cause its irrelevant
+
+        # Return values
+        split[0] = best
+        return 0
+
+
+# Sort n-element arrays pointed to by Xf and samples, simultaneously,
+# by the values in Xf. Algorithm: Introsort (Musser, SP&E, 1997).
+cdef inline void sort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) nogil:
+    if n == 0:
+      return
+    cdef int maxd = 2 * <int>log(n)
+    introsort(Xf, samples, n, maxd)
+
+
+cdef inline void swap(DTYPE_t* Xf, SIZE_t* samples,
+        SIZE_t i, SIZE_t j) nogil:
+    # Helper for sort
+    Xf[i], Xf[j] = Xf[j], Xf[i]
+    samples[i], samples[j] = samples[j], samples[i]
+
+# XXX n/2 compile error - adding extra variable
+cdef inline DTYPE_t median3(DTYPE_t* Xf, SIZE_t n) nogil:
+    # Median of three pivot selection, after Bentley and McIlroy (1993).
+    # Engineering a sort function. SP&E. Requires 8/3 comparisons on average.
+    cdef SIZE_t mid = int(n/2)
+    cdef DTYPE_t a = Xf[0], b = Xf[mid], c = Xf[n - 1]
+    if a < b:
+        if b < c:
+            return b
+        elif a < c:
+            return c
+        else:
+            return a
+    elif b < c:
+        if a < c:
+            return a
+        else:
+            return c
+    else:
+        return b
+
+# Introsort with median of 3 pivot selection and 3-way partition function
+# (robust to repeated elements, e.g. lots of zero features).
+cdef void introsort(DTYPE_t* Xf, SIZE_t *samples,
+                    SIZE_t n, int maxd) nogil:
+    cdef DTYPE_t pivot
+    cdef SIZE_t i, l, r
+
+    while n > 1:
+        if maxd <= 0:   # max depth limit exceeded ("gone quadratic")
+            heapsort(Xf, samples, n)
+            return
+        maxd -= 1
+
+        pivot = median3(Xf, n)
+
+        # Three-way partition.
+        i = l = 0
+        r = n
+        while i < r:
+            if Xf[i] < pivot:
+                swap(Xf, samples, i, l)
+                i += 1
+                l += 1
+            elif Xf[i] > pivot:
+                r -= 1
+                swap(Xf, samples, i, r)
+            else:
+                i += 1
+
+        introsort(Xf, samples, l, maxd)
+        Xf += r
+        samples += r
+        n -= r
+
+cdef inline void sift_down(DTYPE_t* Xf, SIZE_t* samples,
+                           SIZE_t start, SIZE_t end) nogil:
+    # Restore heap order in Xf[start:end] by moving the max element to start.
+    cdef SIZE_t child, maxind, root
+
+    root = start
+    while True:
+        child = root * 2 + 1
+
+        # find max of root, left child, right child
+        maxind = root
+        if child < end and Xf[maxind] < Xf[child]:
+            maxind = child
+        if child + 1 < end and Xf[maxind] < Xf[child + 1]:
+            maxind = child + 1
+
+        if maxind == root:
+            break
+        else:
+            swap(Xf, samples, root, maxind)
+            root = maxind
+
+# XXX Same problem here, casting to int
+cdef void heapsort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) nogil:
+    cdef SIZE_t start, end
+
+    # heapify
+    start = int((n - 2) / 2)
+    end = n
+    while True:
+        sift_down(Xf, samples, start, end)
+        if start == 0:
+            break
+        start -= 1
+
+    # sort by shrinking the heap, putting the max element immediately after it
+    end = n - 1
+    while end > 0:
+        swap(Xf, samples, 0, end)
+        sift_down(Xf, samples, 0, end)
+        end = end - 1
+
+
+
+
+            
+
+
+
 
 
             
