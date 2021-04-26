@@ -186,13 +186,6 @@ cdef class BaseObliqueSplitter:
 
         self.sample_weight = sample_weight
         
-        # Reset projection matrix to 0
-        for i in range(self.max_features):
-            safe_realloc(&self.proj_mat[i], self.n_features)
-
-            for j in range(self.n_features):
-                self.proj_mat[i][j] = 0
-
  
         return 0
 
@@ -225,6 +218,15 @@ cdef class BaseObliqueSplitter:
                             end)
 
         weighted_n_node_samples[0] = self.criterion.weighted_n_node_samples
+        
+        # TODO: throw memory error if this fails!
+        # Reset projection matrix to 0
+        for i in range(self.max_features):
+            safe_realloc(&self.proj_mat[i], self.n_features)
+
+            for j in range(self.n_features):
+                self.proj_mat[i][j] = 0
+        
         return 0
 
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
@@ -318,7 +320,12 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                                self.random_state), self.__getstate__())
 
     cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
-
+        """
+        SPORF Projection matrix.
+        Randomly sample features to put in randomly sampled projection vectors
+        weight = 1 or -1 with probability 0.5 
+        """
+ 
         cdef SIZE_t n_features = self.n_features
         cdef SIZE_t max_features = self.max_features
         cdef SIZE_t n_non_zeros = self.n_non_zeros
@@ -330,7 +337,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
 
             feat_i = rand_int(0, n_features, random_state)
             proj_i = rand_int(0, max_features, random_state)
-            weight = 1 if (rand_int(0, 1, random_state) == 1) else -1
+            weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
 
             proj_mat[feat_i][proj_i] = weight
     
