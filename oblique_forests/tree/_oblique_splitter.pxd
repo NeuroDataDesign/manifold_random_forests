@@ -36,7 +36,7 @@ cdef struct ObliqueSplitRecord:
     double impurity_left   # Impurity of the left split.
     double impurity_right  # Impurity of the right split.
 
-    double* proj_vec       # Projection vector to apply to data sample. It 
+    DTYPE_t* proj_vec      # Projection vector to apply to data sample. It 
                            # can be weighted, where the weights correspond to 
                            # a different basis.
 
@@ -61,7 +61,8 @@ cdef class BaseObliqueSplitter:
 
     # SPORF extra parameters
     cdef public double feature_combinations  # Number of features to combine
-    cdef SIZE_t proj_dims                # size of the projected dimension
+    cdef DTYPE_t** proj_mat               # temp 2D array holding sampled projection matrix
+    #cdef SIZE_t proj_dims                # size of the projected dimension
     cdef SIZE_t n_non_zeros              # density (i.e. number of non-zeros) of the projection vector
 
     cdef object random_state             # Random state
@@ -80,6 +81,7 @@ cdef class BaseObliqueSplitter:
 
     cdef const DOUBLE_t[:, ::1] y
     cdef DOUBLE_t* sample_weight
+    
 
     # The samples vector `samples` is maintained by the Splitter object such
     # that the samples contained in a node are contiguous. With this setting,
@@ -114,9 +116,8 @@ cdef class BaseObliqueSplitter:
 
     cdef double node_impurity(self) nogil
 
-    cdef double impurity(self, double[:] y) nogil
+    #cdef double impurity(self, double[:] y) nogil
 
-    cdef void sample_proj_mat(self, double[:, :] X, 
-                              double[:, :] proj_mat, double[:, :] proj_X) nogil
+    cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil 
 
 

@@ -15,6 +15,7 @@ from libcpp.pair cimport pair
 
 from ._criterion cimport Criterion
 
+from libc.stdlib cimport malloc
 from libc.stdlib cimport free
 from libc.stdlib cimport qsort
 from libc.string cimport memcpy
@@ -67,6 +68,7 @@ cdef void argsort(double[:] y, int[:] idx) nogil:
     for i in range(length):
         idx[i] = v[i].second
 
+"""
 cdef (int, int) argmin(double[:, :] A) nogil:
     cdef int N = A.shape[0]
     cdef int M = A.shape[1]
@@ -101,7 +103,9 @@ cdef void matmul(double[:, :] A, double[:, :] B, double[:, :] res) nogil:
             res[i, j] = 0
             for k in range(n):
                 res[i, j] += A[i, k] * B[k, j]
- 
+"""
+
+
 cdef class BaseObliqueSplitter:
     """Abstract oblique splitter class.
 
@@ -144,6 +148,7 @@ cdef class BaseObliqueSplitter:
 
         self.sample_weight = NULL
 
+        # Max features = output dimensionality of projection vectors
         self.max_features = max_features
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_leaf = min_weight_leaf
@@ -151,13 +156,13 @@ cdef class BaseObliqueSplitter:
 
         # SPORF parameters
         self.feature_combinations = feature_combinations
+        self.proj_mat = NULL
+        self.n_non_zeros = int(self.max_features * self.feature_combinations)
         
         # copied from original Parth's oblique split
-        # self.root_impurity = self.impurity(self.y)
-        cdef SIZE_t proj_dims = int(max(self.max_features * self.n_features, 1))
-        cdef SIZE_t n_non_zeros = int(max(self.proj_dims * self.feature_combinations, 1))
-        self.proj_dims = proj_dims
-        self.n_non_zeros = n_non_zeros
+        #cdef SIZE_t n_non_zeros = int(max(self.proj_dims * self.feature_combinations, 1))
+        #self.proj_dims = proj_dims
+        #self.n_non_zeros = n_non_zeros
 
     def __dealloc__(self):
         """Destructor."""
@@ -165,6 +170,11 @@ cdef class BaseObliqueSplitter:
         free(self.features)
         free(self.constant_features)
         free(self.feature_values)
+        
+        for i in range(self.max_features):
+            free(self.proj_mat[i])
+
+        free(self.proj_mat)
 
     def __getstate__(self):
         return {}
@@ -241,7 +251,17 @@ cdef class BaseObliqueSplitter:
         self.y = y
 
         self.sample_weight = sample_weight
+        
+        # Reset projection matrix to 0
+        for i in range(self.n_features):
+            safe_realloc(&self.proj_mat[i], self.max_features)
+
+            for j in range(self.max_features):
+                self.proj_mat[i][j] = 0
+
+ 
         return 0
+
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end,
                         double* weighted_n_node_samples) nogil except -1:
@@ -259,6 +279,7 @@ cdef class BaseObliqueSplitter:
         weighted_n_node_samples : ndarray, dtype=double pointer
             The total weight of those samples
         """
+
         self.start = start
         self.end = end
 
@@ -292,13 +313,17 @@ cdef class BaseObliqueSplitter:
         """Return the impurity of the current node."""
         return self.criterion.node_impurity()
 
-    cdef void sample_proj_mat(self, double[:, :] X, 
-                              double[:, :] proj_mat, double[:, :] proj_X) nogil:
+    cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
+        """ Sample the projection vector. 
+        
+        This is a placeholder method. 
+
+        """
+
         pass
 
-    cdef double impurity(self, double[:] y) nogil:
-        pass
-
+#    cdef double impurity(self, double[:] y) nogil:
+#        pass
 
 
 cdef class DenseObliqueSplitter(BaseObliqueSplitter):
@@ -318,6 +343,10 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         self.X_idx_sorted_ptr = NULL
         self.X_idx_sorted_stride = 0
         self.sample_mask = NULL
+        self.max_features = max_features
+        self.feature_combinations = feature_combinations
+
+
     cdef int init(self,
                   object X,
                   const DOUBLE_t[:, ::1] y,
@@ -333,6 +362,15 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         BaseObliqueSplitter.init(self, X, y, sample_weight)
 
         self.X = X
+
+        # TODO: throw memory error if this fails!
+        self.proj_mat = <DTYPE_t**> malloc(self.n_features * sizeof(DTYPE_t*))
+        for i in range(self.n_features):
+            safe_realloc(&self.proj_mat[i], self.max_features)
+
+            for j in range(self.max_features):
+                self.proj_mat[i][j] = 0
+
         return 0
 
 cdef class ObliqueSplitter(DenseObliqueSplitter):
@@ -345,6 +383,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                                self.feature_combinations,
                                self.random_state), self.__getstate__())
 
+    """
     cdef double impurity(self, double[:] y) nogil:
         cdef int length = y.shape[0]
         cdef double dlength = y.shape[0]
@@ -372,10 +411,12 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             postincrement(it)
 
         return gini
+    """
 
+    """
     cdef void sample_proj_mat(self, double[:, :] X, 
                               double[:, :] proj_mat, double[:, :] proj_X) nogil:
-        """Get the projection matrix and it fits the transform to the samples of interest.
+        Get the projection matrix and it fits the transform to the samples of interest.
 
         # TODO 
         C's rand function is not thread safe, so this block is currently with GIL.
@@ -384,7 +425,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
 
         proj_mat & proj_X should be np.zeros()
 
-        """
         cdef UINT32_t* random_state = &self.rand_r_state
         cdef UINT32_t n_non_zeros = self.n_non_zeros
         cdef SIZE_t proj_dims = self.proj_dims
@@ -412,7 +452,25 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             proj_mat[feat_i, proj_i] = weight 
         
         matmul(X, proj_mat, proj_X)
+    """
 
+    cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
+
+        cdef SIZE_t n_features = self.n_features
+        cdef SIZE_t max_features = self.max_features
+        cdef SIZE_t n_non_zeros = self.n_non_zeros
+        cdef UINT32_t* random_state = &self.rand_r_state
+
+        cdef int i, feat_i, proj_i
+
+        for i in range(0, n_non_zeros):
+
+            feat_i = rand_int(0, n_features, random_state)
+            proj_i = rand_int(0, n_features, random_state)
+
+            weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
+            proj_mat[feat_i][proj_i] = weight
+    
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
                         SIZE_t* n_constant_features) nogil except -1:
         """Find the best split on node samples[start:end]
@@ -420,193 +478,74 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
         """   
+        
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
+        cdef SIZE_t n_sample_split = end - start
 
-        cdef SIZE_t* features = self.features
-        cdef SIZE_t* constant_features = self.constant_features
+        #cdef SIZE_t* features = self.features
+        #cdef SIZE_t* constant_features = self.constant_features
         cdef SIZE_t n_features = self.n_features
+        #cdef SIZE_t proj_dims = self.proj_dims
 
-        cdef DTYPE_t* Xf = self.feature_values
-        cdef SIZE_t max_features = self.max_features
-        cdef SIZE_t min_samples_leaf = self.min_samples_leaf
-        cdef double min_weight_leaf = self.min_weight_leaf
+        #cdef DTYPE_t* Xf = self.feature_values
+        #cdef SIZE_t max_features = self.max_features
+        #cdef SIZE_t min_samples_leaf = self.min_samples_leaf
+        #cdef double min_weight_leaf = self.min_weight_leaf
         cdef UINT32_t* random_state = &self.rand_r_state
 
-        cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
-        cdef SIZE_t* sample_mask = self.sample_mask
+        #cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
+        #cdef SIZE_t* sample_mask = self.sample_mask
 
         # keep track of split record for current node and the best split
         # found among the sampled projection vectors
         cdef ObliqueSplitRecord best, current
 
-        # instantiate the split records
-        _init_split(&best, end)
-
         cdef double current_proxy_improvement = -INFINITY
         cdef double best_proxy_improvement = -INFINITY
 
-        cdef SIZE_t f_i = n_features
-        cdef SIZE_t f_j
+        cdef SIZE_t f
         cdef SIZE_t p
         cdef SIZE_t feature_idx_offset
         cdef SIZE_t feature_offset
         cdef SIZE_t i
         cdef SIZE_t j
 
-        cdef SIZE_t n_visited_features = 0
+        #cdef SIZE_t n_visited_features = 0
         # Number of features discovered to be constant during the split search
-        cdef SIZE_t n_found_constants = 0
+        #cdef SIZE_t n_found_constants = 0
         # Number of features known to be constant and drawn without replacement
-        cdef SIZE_t n_drawn_constants = 0
-        cdef SIZE_t n_known_constants = n_constant_features[0]
+        #cdef SIZE_t n_drawn_constants = 0
+        #cdef SIZE_t n_known_constants = n_constant_features[0]
         # n_total_constants = n_known_constants + n_found_constants
-        cdef SIZE_t n_total_constants = n_known_constants
-        cdef DTYPE_t current_feature_value
-        cdef SIZE_t partition_end
+        #cdef SIZE_t n_total_constants = n_known_constants
+        #cdef DTYPE_t current_feature_value
+        #cdef SIZE_t partition_end
+
+        # NEW
+        # Variables for sampling projection matrix
+        #cdef np.ndarray[dtype=DTYPE_t, ndim=2] PX = np.zeros((n_features, proj_dims))
+        #cdef DTYPE_t[n_features] x
 
 
-    # cpdef best_split(self, double[:, :] X, double[:] y, int[:] sample_inds):
-    #     """Find the optimal split for a set of samples.
-    
-    #     """
-    #     cdef int n_samples = X.shape[0]     # number of samples in data
-    #     cdef int proj_dims = X.shape[1]     # dimensionality of the data
-    #     cdef int i = 0                      # index over samples
-    #     cdef int j = 0                      # index over dimensions
-    #     cdef long temp_int = 0; 
-    #     cdef double node_impurity = 0;      # impurity of a node
 
-    #     # keep track of split record for current node and the best split
-    #     # found among the sampled projection vectors
-    #     cdef ObliqueSplitRecord best, current
+        #cdef DTYPE_t PX[n_samples_split][proj_dims]
+        #cdef DTYPE_t[:, :] proj_X = PX
 
-    #     # instantiate the split records
-    #     _init_split(&best, end)
-
-    #     cdef int thresh_i = 0
-    #     cdef int feature = 0
-    #     cdef double best_gini = 0
-    #     cdef double threshold = 0
-    #     cdef double improvement = 0
-    #     cdef double left_impurity = 0
-    #     cdef double right_impurity = 0
-
-    #     Q = np.zeros((n_samples, proj_dims), dtype=np.float64)
-    #     cdef double[:, :] Q_view = Q
-
-    #     idx = np.zeros(n_samples, dtype=np.intc)
-    #     cdef int[:] idx_view = idx
-
-    #     y_sort = np.zeros(n_samples, dtype=np.float64)
-    #     cdef double[:] y_sort_view = y_sort
-        
-    #     feat_sort = np.zeros(n_samples, dtype=np.float64)
-    #     cdef double[:] feat_sort_view = feat_sort
-
-    #     si_return = np.zeros(n_samples, dtype=np.intc)
-    #     cdef int[:] si_return_view = si_return
         
 
-    #     # No split or invalid split --> node impurity
-    #     node_impurity = self.impurity(y)
-    #     Q_view[:, :] = node_impurity
+
+         # instantiate the split records
+        _init_split(&best, end)
+
         
-    #     # loop over columns of the matrix (projected feature dimensions)
-    #     for j in range(0, proj_dims):
-    #         # get the sorted indices along the rows (sample dimension)
-    #         argsort(X[:, j], idx_view)
 
-    #         for i in range(0, n_samples):
-    #             temp_int = idx_view[i]
-    #             y_sort_view[i] = y[temp_int]
-    #             feat_sort_view[i] = X[temp_int, j]
 
-    #         for i in prange(1, n_samples, nogil=True):
-                
-    #             # Check if the split is valid!
-    #             if feat_sort_view[i-1] < feat_sort_view[i]:
-    #                 Q_view[i, j] = self.score(y_sort_view, i)
+        # Sample the projection matrix
 
-    #     # Identify best split
-    #     (thresh_i, feature) = argmin(Q_view)
-      
-    #     best_gini = Q_view[thresh_i, feature]
-    #     # Sort samples by split feature
-    #     argsort(X[:, feature], idx_view)
-    #     for i in range(0, n_samples):
-    #         temp_int = idx_view[i]
+        
+        #for f in range(
 
-    #         # Sort X so we can get threshold
-    #         feat_sort_view[i] = X[temp_int, feature]
+
             
-    #         # Sort y so we can get left_y, right_y
-    #         y_sort_view[i] = y[temp_int]
-            
-    #         # Sort true sample inds
-    #         si_return_view[i] = sample_inds[temp_int]
-        
-    #     # Get threshold, split samples into left and right
-    #     if (thresh_i == 0):
-    #         threshold = node_impurity #feat_sort_view[thresh_i]
-    #     else:
-    #         threshold = 0.5 * (feat_sort_view[thresh_i] + feat_sort_view[thresh_i - 1])
-
-    #     left_idx = si_return_view[:thresh_i]
-    #     right_idx = si_return_view[thresh_i:]
-        
-    #     # Evaluate improvement
-    #     improvement = node_impurity - best_gini
-
-    #     # Evaluate impurities for left and right children
-    #     left_impurity = self.impurity(y_sort_view[:thresh_i])
-    #     right_impurity = self.impurity(y_sort_view[thresh_i:])
-
-    #     return feature, threshold, left_impurity, left_idx, right_impurity, right_idx, improvement 
-
-    """
-    Python wrappers for cdef functions.
-    Only to be used for testing purposes.
-    """
-
-    def test_argsort(self, y):
-        idx = np.zeros(len(y), dtype=np.intc)
-        argsort(y, idx)
-        return idx
-
-    def test_argmin(self, M):
-        return argmin(M)
-
-    def test_impurity(self, y):
-        return self.impurity(y)
-
-    def test_score(self, y, t):
-        return self.score(y, t)
-
-    def test_best_split(self, X, y, idx):
-        return self.best_split(X, y, idx)
-
-    def test_matmul(self, A, B):
-        res = np.zeros((A.shape[0], B.shape[1]), dtype=np.float64)
-        matmul(A, B, res)
-        return res
-
-    def test(self):
-
-        # Test score
-        y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1], dtype=np.float64)
-        s = [self.score(y, i) for i in range(10)]
-        print(s)
-
-        # Test splitter
-        # This one worked
-        X = np.array([[0, 0, 0, 1, 1, 1, 1],
-                      [1, 1, 1, 1, 1, 1, 1]], dtype=np.float64)
-        y = np.array([0, 0, 0, 1, 1, 1, 1], dtype=np.float64)
-        si = np.array([0, 1, 2, 3, 4, 5, 6], dtype=np.intc)
-
-        (f, t, li, lidx, ri, ridx, imp) = self.best_split(X, y, si)
-        print(f, t)
-
-        
