@@ -7,14 +7,6 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
-"""
-from cython.operator import dereference, postincrement
-from libcpp.unordered_map cimport unordered_map
-from libcpp.algorithm cimport sort as stdsort
-from libcpp.vector cimport vector
-from libcpp.pair cimport pair
-"""
-
 from ._criterion cimport Criterion
 
 from libc.stdlib cimport malloc
@@ -52,61 +44,6 @@ cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.threshold = 0.
     self.improvement = -INFINITY
     self.proj_vec = NULL
-
-"""
-cdef void argsort(double[:] y, int[:] idx) nogil:
-
-    cdef int length = y.shape[0]
-    cdef int i = 0
-    cdef pair[double, int] p
-    cdef vector[pair[double, int]] v
-        
-    for i in range(length):
-        p.first = y[i]
-        p.second = i
-        v.push_back(p)
-
-    stdsort(v.begin(), v.end())
-
-    for i in range(length):
-        idx[i] = v[i].second
-
-cdef (int, int) argmin(double[:, :] A) nogil:
-    cdef int N = A.shape[0]
-    cdef int M = A.shape[1]
-    cdef int i = 0
-    cdef int j = 0
-    cdef int min_i = 0
-    cdef int min_j = 0
-    cdef double minimum = A[0, 0]
-
-    for i in range(N):
-        for j in range(M):
-
-            if A[i, j] < minimum:
-                minimum = A[i, j]
-                min_i = i
-                min_j = j
-
-    return (min_i, min_j)
-
-cdef void matmul(double[:, :] A, double[:, :] B, double[:, :] res) nogil:
-
-    cdef int i, j, k
-    cdef int m, n, p
-
-    m = A.shape[0]
-    n = A.shape[1]
-    p = B.shape[1]
-
-    for i in range(m):
-        for j in range(p):
-
-            res[i, j] = 0
-            for k in range(n):
-                res[i, j] += A[i, k] * B[k, j]
-"""
-
 
 cdef class BaseObliqueSplitter:
     """Abstract oblique splitter class.
@@ -379,77 +316,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                                self.min_weight_leaf,
                                self.feature_combinations,
                                self.random_state), self.__getstate__())
-
-    """
-    cdef double impurity(self, double[:] y) nogil:
-        cdef int length = y.shape[0]
-        cdef double dlength = y.shape[0]
-        cdef double temp = 0
-        cdef double gini = 1.0
-        
-        cdef unordered_map[double, double] counts
-        cdef unordered_map[double, double].iterator it = counts.begin()
-
-        if length == 0:
-            return 0
-
-        # Count all unique elements
-        for i in range(0, length):
-            temp = y[i]
-            counts[temp] += 1
-
-        it = counts.begin()
-        while it != counts.end():
-            temp = dereference(it).second
-            temp = temp / dlength
-            temp = temp * temp
-            gini -= temp
-
-            postincrement(it)
-
-        return gini
-    """
-
-    """
-    cdef void sample_proj_mat(self, double[:, :] X, 
-                              double[:, :] proj_mat, double[:, :] proj_X) nogil:
-        Get the projection matrix and it fits the transform to the samples of interest.
-
-        # TODO 
-        C's rand function is not thread safe, so this block is currently with GIL.
-        When merging this code with sklearn, we can use their random number generator from their utils
-        But since I don't have that here with me, I'm using C's rand function for now.
-
-        proj_mat & proj_X should be np.zeros()
-
-        cdef UINT32_t* random_state = &self.rand_r_state
-        cdef UINT32_t n_non_zeros = self.n_non_zeros
-        cdef SIZE_t proj_dims = self.proj_dims
-
-        # if proj_dims != proj_mat.shape[1]:
-        #     return -1
-
-        cdef SIZE_t n_samples = X.shape[0]
-        cdef SIZE_t n_features = X.shape[1]
-        
-        # declare indexes
-        cdef int idx, feat_i, proj_i
-
-        # declare weight types
-        cdef int weight
-
-        # Draw n non zeros & put into proj_mat
-        for idx in prange(0, n_non_zeros, nogil=True):
-            # Draw a feature at random
-            feat_i = rand_int(0, n_features, random_state)
-            proj_i = rand_int(0, proj_dims, random_state)
-
-            # set weights to +/- 1
-            weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
-            proj_mat[feat_i, proj_i] = weight 
-        
-        matmul(X, proj_mat, proj_X)
-    """
 
     cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
 
