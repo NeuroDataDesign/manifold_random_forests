@@ -8,7 +8,7 @@
 #
 # License: BSD 3 clause
 
-# See _tree.pyx for details.
+# See _oblique_tree.pyx for details.
 
 import numpy as np
 cimport numpy as np
@@ -19,10 +19,10 @@ ctypedef np.npy_intp SIZE_t              # Type for indices and counters
 ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
 ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
 
-from ._splitter cimport Splitter
-from ._splitter cimport SplitRecord
+from ._oblique_splitter cimport BaseObliqueSplitter
+from ._oblique_splitter cimport ObliqueSplitRecord
 
-cdef struct Node:
+cdef struct ObliqueNode:
     # Base storage structure for the nodes in a Tree object
 
     SIZE_t left_child                    # id of the left child of the node
@@ -34,10 +34,10 @@ cdef struct Node:
     DOUBLE_t weighted_n_node_samples     # Weighted number of samples at the node
 
     # SPORF parameters
-    DOUBLE_t* proj_vec                   # Projection vector to apply to data
+    DTYPE_t* proj_vec                   # Projection vector to apply to data
 
 
-cdef class Tree:
+cdef class ObliqueTree:
     # The Tree object is a binary tree structure constructed by the
     # TreeBuilder. The tree structure is used for predictions and
     # feature importances.
@@ -53,7 +53,7 @@ cdef class Tree:
     cdef public SIZE_t max_depth         # Max depth of the tree
     cdef public SIZE_t node_count        # Counter for node IDs
     cdef public SIZE_t capacity          # Capacity of tree, in terms of nodes
-    cdef Node* nodes                     # Array of nodes
+    cdef ObliqueNode* nodes              # Array of oblique nodes
     cdef double* value                   # (capacity, n_outputs, max_n_classes) array of values
     cdef SIZE_t value_stride             # = n_outputs * max_n_classes
 
@@ -61,7 +61,8 @@ cdef class Tree:
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
-                          double weighted_n_samples) nogil except -1
+                          double weighted_n_samples, 
+                          DTYPE_t* proj_vec) nogil except -1
     cdef int _resize(self, SIZE_t capacity) nogil except -1
     cdef int _resize_c(self, SIZE_t capacity=*) nogil except -1
 
@@ -93,7 +94,7 @@ cdef class TreeBuilder:
     # This class controls the various stopping criteria and the node splitting
     # evaluation order, e.g. depth-first or best-first.
 
-    cdef Splitter splitter              # Splitting algorithm
+    cdef BaseObliqueSplitter splitter   # Splitting algorithm
 
     cdef SIZE_t min_samples_split       # Minimum number of samples in an internal node
     cdef SIZE_t min_samples_leaf        # Minimum number of samples in a leaf
@@ -102,7 +103,7 @@ cdef class TreeBuilder:
     cdef double min_impurity_split
     cdef double min_impurity_decrease   # Impurity threshold for early stopping
 
-    cpdef build(self, Tree tree, object X, np.ndarray y,
+    cpdef build(self, ObliqueTree tree, object X, np.ndarray y,
                 np.ndarray sample_weight=*,
                 np.ndarray X_idx_sorted=*)
     cdef _check_input(self, object X, np.ndarray y, np.ndarray sample_weight)
