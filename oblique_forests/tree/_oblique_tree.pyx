@@ -71,11 +71,11 @@ cdef SIZE_t INITIAL_STACK_SIZE = 10
 NODE_DTYPE = np.dtype({
     'names': ['left_child', 'right_child', 'feature', 'threshold', 'impurity',
               'n_node_samples', 'weighted_n_node_samples', 
-            #   'proj_vec'
+              'proj_vec'
               ],
     'formats': [np.intp, np.intp, np.intp, np.float64, np.float64, np.intp,
                 np.float64, 
-                # np.float64
+                np.float64 
                 ],
     'offsets': [
         <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
@@ -85,7 +85,7 @@ NODE_DTYPE = np.dtype({
         <Py_ssize_t> &(<ObliqueNode*> NULL).impurity,
         <Py_ssize_t> &(<ObliqueNode*> NULL).n_node_samples,
         <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples
-        # <Py_double_t> &(<ObliqueNode*> NULL).proj_vec  # idk if this is right...
+        <DTYPE_t> &(<ObliqueNode*> NULL).proj_vec  # TODO: idk if this is right...
     ]
 })
 
@@ -537,7 +537,8 @@ cdef class ObliqueTree:
             node.right_child = _TREE_LEAF
             node.feature = _TREE_UNDEFINED
             node.threshold = _TREE_UNDEFINED
-
+            node.proj_vec = NULL
+            
         else:
             # left_child and right_child will be set later
             node.feature = feature
