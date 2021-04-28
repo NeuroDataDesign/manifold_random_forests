@@ -75,7 +75,9 @@ NODE_DTYPE = np.dtype({
               ],
     'formats': [np.intp, np.intp, np.intp, np.float64, np.float64, np.intp,
                 np.float64, 
-                np.float64 
+                np.float64,
+                #np.float32,
+                np.ndarray
                 ],
     'offsets': [
         <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
@@ -84,8 +86,8 @@ NODE_DTYPE = np.dtype({
         <Py_ssize_t> &(<ObliqueNode*> NULL).threshold,
         <Py_ssize_t> &(<ObliqueNode*> NULL).impurity,
         <Py_ssize_t> &(<ObliqueNode*> NULL).n_node_samples,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples
-        # <DTYPE_t> &(<ObliqueNode*> NULL).proj_vec  # TODO: idk if this is right...
+        <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples,
+        <Py_ssize_t> &(<ObliqueNode*> NULL).proj_vec
     ]
 })
 
@@ -583,6 +585,7 @@ cdef class ObliqueTree:
         # Extract input
         cdef DTYPE_t[:, :] X_ndarray = X
         cdef SIZE_t n_samples = X.shape[0]
+        cdef SIZE_t n_features = X.shape[1]
 
         # Initialize output
         cdef np.ndarray[SIZE_t] out = np.zeros((n_samples,), dtype=np.intp)
@@ -591,6 +594,8 @@ cdef class ObliqueTree:
         # Initialize auxiliary data-structure
         cdef ObliqueNode* node = NULL
         cdef SIZE_t i = 0
+        cdef SIZE_t j = 0
+        cdef DTYPE_t proj_feat = 0
 
         with nogil:
             for i in range(n_samples):
@@ -598,7 +603,12 @@ cdef class ObliqueTree:
                 # While node not a leaf
                 while node.left_child != _TREE_LEAF:
                     # ... and node.right_child != _TREE_LEAF:
-                    if X_ndarray[i, node.feature] <= node.threshold:
+                    
+                    proj_feat = 0
+                    for j in range(n_features):
+                        proj_feat += node.proj_vec[j] * X_ndarray[i, j] 
+
+                    if proj_feat <= node.threshold:
                         node = &self.nodes[node.left_child]
                     else:
                         node = &self.nodes[node.right_child]

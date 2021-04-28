@@ -34,7 +34,7 @@ cdef struct Node:
     DOUBLE_t weighted_n_node_samples     # Weighted number of samples at the node
 
     # SPORF parameters
-    DOUBLE_t* proj_vec                   # Projection vector to apply to data
+    DTYPE_t* proj_vec                   # Projection vector to apply to data
 
 
 cdef class Tree:

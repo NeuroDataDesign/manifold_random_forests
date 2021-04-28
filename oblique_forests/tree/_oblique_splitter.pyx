@@ -276,6 +276,8 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
                   double feature_combinations,
                   object random_state):
 
+        print("Splitter build...")
+
         self.X_idx_sorted_ptr = NULL
         self.X_idx_sorted_stride = 0
         self.sample_mask = NULL
