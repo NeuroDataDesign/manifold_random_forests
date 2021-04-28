@@ -144,7 +144,7 @@ cdef class BaseObliqueSplitter:
         X_idx_sorted : ndarray, default=None
             The indexes of the sorted training input samples
         """
-
+        print('inside split init...')
         self.rand_r_state = self.random_state.randint(0, RAND_R_MAX)
         cdef SIZE_t n_samples = X.shape[0]
 
@@ -156,6 +156,7 @@ cdef class BaseObliqueSplitter:
         cdef double weighted_n_samples = 0.0
         j = 0
 
+        print('Initializing sample weights...')
         for i in range(n_samples):
             # Only work with positively weighted samples
             if sample_weight == NULL or sample_weight[i] != 0.0:
@@ -179,13 +180,15 @@ cdef class BaseObliqueSplitter:
 
         self.n_features = n_features
 
+        print('About to safe realloc...')
         safe_realloc(&self.feature_values, n_samples)
+        print('Safe reallocated feature values..')
         safe_realloc(&self.constant_features, n_features)
-
+        print('After second...')
         self.y = y
 
         self.sample_weight = sample_weight
-        
+        print('Finished init...')
  
         return 0
 
@@ -258,9 +261,6 @@ cdef class BaseObliqueSplitter:
 
         pass
 
-#    cdef double impurity(self, double[:] y) nogil:
-#        pass
-
 
 cdef class DenseObliqueSplitter(BaseObliqueSplitter):
     cdef const DTYPE_t[:, :] X
@@ -284,7 +284,6 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         self.max_features = max_features # number of proj_vecs
         self.feature_combinations = feature_combinations
 
-
     cdef int init(self,
                   object X,
                   const DOUBLE_t[:, ::1] y,
@@ -300,12 +299,16 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         BaseObliqueSplitter.init(self, X, y, sample_weight)
 
         self.X = X
-
+        print('About to allocate projection matrix...')
         # TODO: throw memory error if this fails!
         self.proj_mat = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
-        for i in range(self.max_features):
-            safe_realloc(&self.proj_mat[i], self.n_features)
 
+        print('Malloced proj mat..')
+        cdef SIZE_t i, j
+        for i in range(self.max_features):
+            print('safe relalocating...')
+            safe_realloc(&self.proj_mat[i], self.n_features)
+            print('success...')
             for j in range(self.n_features):
                 self.proj_mat[i][j] = 0
 

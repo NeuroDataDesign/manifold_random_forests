@@ -79,16 +79,16 @@ NODE_DTYPE = np.dtype({
                 #np.float32,
                 np.ndarray
                 ],
-    'offsets': [
-        <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).right_child,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).feature,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).threshold,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).impurity,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).n_node_samples,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples,
-        <Py_ssize_t> &(<ObliqueNode*> NULL).proj_vec
-    ]
+    # 'offsets': [
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).right_child,
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).feature,
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).threshold,
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).impurity,
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).n_node_samples,
+    #     <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples
+    #     # <DTYPE_t> &(<ObliqueNode*> NULL).proj_vec  # TODO: idk if this is right...
+    # ]
 })
 
 # =============================================================================
@@ -173,6 +173,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
             init_capacity = 2047
 
         tree._resize(init_capacity)
+        print('finished resizing...')
 
         # Parameters
         cdef BaseObliqueSplitter splitter = self.splitter
@@ -184,7 +185,9 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef double min_impurity_split = self.min_impurity_split
 
         # Recursive partition (without actual recursion)
+        print('splitter: ', splitter)
         splitter.init(X, y, sample_weight_ptr, X_idx_sorted)
+        print('Splitter initialized...')
 
         cdef SIZE_t start
         cdef SIZE_t end

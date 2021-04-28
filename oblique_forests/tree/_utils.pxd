@@ -73,6 +73,7 @@ ctypedef fused realloc_ptr:
     (PriorityHeapRecord*)
     (ObliqueNode*)
     (ObliqueNode**)
+    (DTYPE_t**)
     # (ObliqueStackRecord*)  # is this needed?! - ADAM 
 
 cdef realloc_ptr safe_realloc(realloc_ptr* p, size_t nelems) nogil except *
