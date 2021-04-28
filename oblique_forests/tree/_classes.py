@@ -372,7 +372,7 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         SPLITTERS = SPARSE_SPLITTERS if issparse(X) else DENSE_SPLITTERS
 
         splitter = self.splitter
-        if not isinstance(self.splitter, Splitter):
+        if not isinstance(self.splitter, BaseObliqueSplitter):
             # TODO: put this in the __init__
             feature_combinations = 1.5
             splitter = SPLITTERS[self.splitter](criterion,

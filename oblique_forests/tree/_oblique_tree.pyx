@@ -71,11 +71,11 @@ cdef SIZE_t INITIAL_STACK_SIZE = 10
 NODE_DTYPE = np.dtype({
     'names': ['left_child', 'right_child', 'feature', 'threshold', 'impurity',
               'n_node_samples', 'weighted_n_node_samples', 
-            #   'proj_vec'
+              'proj_vec'
               ],
     'formats': [np.intp, np.intp, np.intp, np.float64, np.float64, np.intp,
                 np.float64, 
-                # np.float64 
+                np.float64 
                 ],
     'offsets': [
         <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
@@ -152,6 +152,8 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                 np.ndarray sample_weight=None,
                 np.ndarray X_idx_sorted=None):
         """Build a decision tree from the training set (X, y)."""
+        # with gil:
+        print('Inside build...')
 
         # check input
         X, y, sample_weight = self._check_input(X, y, sample_weight)
@@ -202,6 +204,9 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
 
         cdef Stack stack = Stack(INITIAL_STACK_SIZE)
         cdef StackRecord stack_record
+
+        # with gil:
+        print('Got to nogil part.')
 
         with nogil:
             # push root node onto stack
