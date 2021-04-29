@@ -100,15 +100,25 @@ cdef class BaseObliqueSplitter:
         
     def __dealloc__(self):
         """Destructor."""
+
         free(self.samples)
+        print("freed samples")
+
         free(self.features)
+        print("freed features")
+
         free(self.constant_features)
+        print("freed constant_features")
+
         free(self.feature_values)
+        print("freed feature_values")
         
         for i in range(self.max_features):
             free(self.proj_mat[i])
+        print("freed proj_mat vectors")
 
         free(self.proj_mat)
+        print("freed proj_mat")
 
     def __getstate__(self):
         return {}

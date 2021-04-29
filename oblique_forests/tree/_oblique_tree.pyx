@@ -419,14 +419,21 @@ cdef class ObliqueTree:
         """Destructor."""
         # Free all inner structures
         free(self.n_classes)
+        print("freed n_classes")
         free(self.value)
+        print("freed value")
         
         # Deallocate memory for all proj_vecs
+        print(self.node_count)
         for i in range(self.node_count):
             free(self.proj_vecs[i])
+        print("freed each projection vector")
+        
         free(self.proj_vecs)
+        print("freed proj_vec array")
 
         free(self.nodes)
+        print("freed nodes")
 
     def __reduce__(self):
         """Reduce re-implementation, for pickling."""

@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.testing import assert_array_equal
 from oblique_forests.tree import DecisionTreeClassifier
 
 X_small = np.array(
@@ -395,4 +396,5 @@ def test_tree():
 
     # clf.fit(X, y)
 
+#test_tree()
 test_classification_toy()
