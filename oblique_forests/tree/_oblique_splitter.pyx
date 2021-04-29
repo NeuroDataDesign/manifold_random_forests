@@ -225,7 +225,8 @@ cdef class BaseObliqueSplitter:
         # TODO: throw memory error if this fails!
         # Reset projection matrix to 0
         for i in range(self.max_features):
-            safe_realloc(&self.proj_mat[i], self.n_features)
+            # I dont think we need to reallocate the memory. Just reset to 0.
+            #safe_realloc(&self.proj_mat[i], self.n_features)
 
             for j in range(self.n_features):
                 self.proj_mat[i][j] = 0
@@ -306,8 +307,10 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         print('Malloced proj mat..')
         cdef SIZE_t i, j
         for i in range(self.max_features):
-            print('safe relalocating...')
-            safe_realloc(&self.proj_mat[i], self.n_features)
+            print('Mallocing vectors...')
+
+            self.proj_mat[i] = <DTYPE_t*> malloc(self.n_features * (sizeof(DTYPE_t)))
+
             print('success...')
             for j in range(self.n_features):
                 self.proj_mat[i][j] = 0
