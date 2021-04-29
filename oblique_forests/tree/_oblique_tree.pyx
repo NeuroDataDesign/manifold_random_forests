@@ -18,7 +18,7 @@
 
 from cpython cimport Py_INCREF, PyObject, PyTypeObject
 
-from libc.stdlib cimport free
+from libc.stdlib cimport free, malloc
 from libc.math cimport fabs
 from libc.string cimport memcpy
 from libc.string cimport memset
@@ -71,24 +71,18 @@ cdef SIZE_t INITIAL_STACK_SIZE = 10
 NODE_DTYPE = np.dtype({
     'names': ['left_child', 'right_child', 'feature', 'threshold', 'impurity',
               'n_node_samples', 'weighted_n_node_samples', 
-              'proj_vec'
               ],
     'formats': [np.intp, np.intp, np.intp, np.float64, np.float64, np.intp,
-                np.float64, 
-                np.float64,
-                #np.float32,
-                np.ndarray
-                ],
-    # 'offsets': [
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).right_child,
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).feature,
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).threshold,
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).impurity,
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).n_node_samples,
-    #     <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples
-    #     # <DTYPE_t> &(<ObliqueNode*> NULL).proj_vec  # TODO: idk if this is right...
-    # ]
+                np.float64],
+    'offsets': [
+         <Py_ssize_t> &(<ObliqueNode*> NULL).left_child,
+         <Py_ssize_t> &(<ObliqueNode*> NULL).right_child,
+         <Py_ssize_t> &(<ObliqueNode*> NULL).feature,
+         <Py_ssize_t> &(<ObliqueNode*> NULL).threshold,
+         <Py_ssize_t> &(<ObliqueNode*> NULL).impurity,
+         <Py_ssize_t> &(<ObliqueNode*> NULL).n_node_samples,
+         <Py_ssize_t> &(<ObliqueNode*> NULL).weighted_n_node_samples
+    ]
 })
 
 # =============================================================================
@@ -419,11 +413,19 @@ cdef class ObliqueTree:
         self.value = NULL
         self.nodes = NULL
 
+        self.proj_vecs = NULL
+
     def __dealloc__(self):
         """Destructor."""
         # Free all inner structures
         free(self.n_classes)
         free(self.value)
+        
+        # Deallocate memory for all proj_vecs
+        for i in range(self.node_count):
+            free(self.proj_vecs[i])
+        free(self.proj_vecs)
+
         free(self.nodes)
 
     def __reduce__(self):
@@ -472,6 +474,8 @@ cdef class ObliqueTree:
         value = memcpy(self.value, (<np.ndarray> value_ndarray).data,
                        self.capacity * self.value_stride * sizeof(double))
 
+        # TODO: pickling for proj_vecs
+
     cdef int _resize(self, SIZE_t capacity) nogil except -1:
         """Resize all inner arrays to `capacity`, if `capacity` == -1, then
            double the size of the inner arrays.
@@ -502,6 +506,8 @@ cdef class ObliqueTree:
         safe_realloc(&self.nodes, capacity)
         safe_realloc(&self.value, capacity * self.value_stride)
 
+        safe_realloc(&self.proj_vecs, capacity) 
+
         # value memory is initialised to 0 to enable classifier argmax
         if capacity > self.capacity:
             memset(<void*>(self.value + self.capacity * self.value_stride), 0,
@@ -526,12 +532,15 @@ cdef class ObliqueTree:
         Returns (size_t)(-1) on error.
         """
         cdef SIZE_t node_id = self.node_count
+        cdef SIZE_t n_features = self.n_features
 
         if node_id >= self.capacity:
             if self._resize_c() != 0:
                 return SIZE_MAX
 
         cdef ObliqueNode* node = &self.nodes[node_id]
+        #cdef DTYPE_t* projection = &self.proj_vecs[node_id]
+
         node.impurity = impurity
         node.n_node_samples = n_node_samples
         node.weighted_n_node_samples = weighted_n_node_samples
@@ -547,13 +556,17 @@ cdef class ObliqueTree:
             node.right_child = _TREE_LEAF
             node.feature = _TREE_UNDEFINED
             node.threshold = _TREE_UNDEFINED
-            node.proj_vec = NULL
+            #node.proj_vec = NULL
             
         else:
             # left_child and right_child will be set later
             node.feature = feature
             node.threshold = threshold
-            node.proj_vec = proj_vec
+
+            # Allocate memory for tree's proj_vec and make a deep copy
+            self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
+            for i in range(n_features):
+                self.proj_vecs[node_id][i] = proj_vec[i]
 
         self.node_count += 1
 
@@ -599,6 +612,8 @@ cdef class ObliqueTree:
         cdef SIZE_t i = 0
         cdef SIZE_t j = 0
         cdef DTYPE_t proj_feat = 0
+        cdef DTYPE_t* proj_vec
+        cdef SIZE_t node_id = 0
 
         with nogil:
             for i in range(n_samples):
@@ -608,13 +623,19 @@ cdef class ObliqueTree:
                     # ... and node.right_child != _TREE_LEAF:
                     
                     proj_feat = 0
+                    proj_vec = self.proj_vecs[node_id]
+
                     for j in range(n_features):
-                        proj_feat += node.proj_vec[j] * X_ndarray[i, j] 
+                        proj_feat += X_ndarray[i, j] * proj_vec[j]
 
                     if proj_feat <= node.threshold:
+                        node_id = node.left_child
                         node = &self.nodes[node.left_child]
+
                     else:
+                        node_id = node.right_child
                         node = &self.nodes[node.right_child]
+                    
 
                 out_ptr[i] = <SIZE_t>(node - self.nodes)  # node offset
 

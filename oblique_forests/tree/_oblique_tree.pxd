@@ -33,9 +33,6 @@ cdef struct ObliqueNode:
     SIZE_t n_node_samples                # Number of samples at the node
     DOUBLE_t weighted_n_node_samples     # Weighted number of samples at the node
 
-    # SPORF parameters
-    DTYPE_t* proj_vec                   # Projection vector to apply to data
-
 
 cdef class ObliqueTree:
     # The Tree object is a binary tree structure constructed by the
@@ -56,6 +53,8 @@ cdef class ObliqueTree:
     cdef ObliqueNode* nodes              # Array of oblique nodes
     cdef double* value                   # (capacity, n_outputs, max_n_classes) array of values
     cdef SIZE_t value_stride             # = n_outputs * max_n_classes
+
+    cdef DTYPE_t** proj_vecs             # (capacity, n_features) array of projection vectors
 
     # Methods
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
