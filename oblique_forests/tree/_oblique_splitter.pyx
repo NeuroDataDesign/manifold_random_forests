@@ -398,6 +398,8 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef SIZE_t partition_end
         cdef DTYPE_t temp_d
 
+        # instantiate the projection matrix and a 
+        # point for projection vectors to pass the selected projection vector
         cdef DTYPE_t** proj_mat = self.proj_mat
         cdef DTYPE_t* proj_vec
 

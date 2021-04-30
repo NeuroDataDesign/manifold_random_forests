@@ -425,6 +425,7 @@ cdef class ObliqueTree:
         
         # Deallocate memory for all proj_vecs
         print(self.node_count)
+        # print(self.proj_vecs)
         for i in range(self.node_count):
             free(self.proj_vecs[i])
         print("freed each projection vector")
@@ -513,6 +514,7 @@ cdef class ObliqueTree:
         safe_realloc(&self.nodes, capacity)
         safe_realloc(&self.value, capacity * self.value_stride)
 
+        # resize projection vectors
         safe_realloc(&self.proj_vecs, capacity) 
 
         # value memory is initialised to 0 to enable classifier argmax
@@ -558,22 +560,30 @@ cdef class ObliqueTree:
             else:
                 self.nodes[parent].right_child = node_id
 
+        # allocate memory for projection vector for this node
+        self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
+
         if is_leaf:
             node.left_child = _TREE_LEAF
             node.right_child = _TREE_LEAF
             node.feature = _TREE_UNDEFINED
             node.threshold = _TREE_UNDEFINED
             #node.proj_vec = NULL
-            
+            # with gil:
+            #     print('Setting leaf...')
         else:
             # left_child and right_child will be set later
             node.feature = feature
             node.threshold = threshold
 
             # Allocate memory for tree's proj_vec and make a deep copy
-            self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
+            # self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
+            # with gil:
+            #     print('Allocating memory for proj_vecs')
             for i in range(n_features):
                 self.proj_vecs[node_id][i] = proj_vec[i]
+                # with gil:
+                #     print('Set projection vector for ', node_id)
 
         self.node_count += 1
 
