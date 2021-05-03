@@ -113,9 +113,10 @@ cdef class BaseObliqueSplitter:
         free(self.feature_values)
         print("freed feature_values")
         
-        for i in range(self.max_features):
-            free(self.proj_mat[i])
-        print("freed proj_mat vectors")
+        if self.proj_mat:    
+            for i in range(self.max_features):
+                free(self.proj_mat[i])
+            print("freed proj_mat vectors")
 
         free(self.proj_mat)
         print("freed proj_mat")
