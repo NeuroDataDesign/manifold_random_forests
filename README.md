@@ -8,7 +8,7 @@
 Morf
 ====
 
-Original code from SPORF to cythonize for the intentions of sklearn PR.
+Original code from SPORF to cythonize for the intentions of sklearn PR. For more information, visit the [wiki](https://github.com/NeuroDataDesign/manifold_random_forests/wiki)
 
 Installation
 ------------
