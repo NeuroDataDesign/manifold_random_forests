@@ -3,6 +3,7 @@ import numpy.random as rng
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from sklearn.utils.fixes import _joblib_parallel_args
 
 from ._split import BaseObliqueSplitter
 from .oblique_base import BaseManifoldSplitter, Node, SplitInfo, StackRecord
@@ -528,6 +529,37 @@ class ObliqueTree:
 
         return predictions
 
+    def compute_feature_importances(self):
+        """
+        Computes the importance of each feature (aka variable).
+
+        Parameters
+        ----------
+        unique_projections : ndarray of shape (n_proj, n_features)
+            Array of unique sampling projection vectors.
+
+        Returns
+        -------
+        importances : ndarray of shape (n_features,)
+            Normalized importance of each feature of the data matrix.
+        """
+        projections = [
+            node.proj_vec for node in self.nodes if node.proj_vec is not None
+        ]
+        unique_projections, counts = np.unique(projections, axis=0, return_counts=True)
+
+        if counts.sum() == 0:
+            return np.zeros((self.splitter.n_features,))
+
+        importances = np.zeros((self.splitter.n_features,))
+        for proj_vec, count in zip(unique_projections, counts):
+            importances[np.nonzero(proj_vec)] += count
+
+        if len(unique_projections) > 0:
+            importances /= len(unique_projections)
+
+        return importances
+
 
 class ObliqueTreeClassifier(BaseEstimator):
     """
@@ -600,6 +632,7 @@ class ObliqueTreeClassifier(BaseEstimator):
 
         # Max features
         self.max_features = max_features
+        self.n_jobs = n_jobs
 
         self.n_classes = None
         self.n_jobs = n_jobs
@@ -640,7 +673,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         tree_func = self._tree_class()
 
         # instantiate the tree and build it
-        self.tree = tree_func(
+        self.tree_ = tree_func(
             splitter,
             self.min_samples_split,
             self.min_samples_leaf,
@@ -648,7 +681,7 @@ class ObliqueTreeClassifier(BaseEstimator):
             self.min_impurity_split,
             self.min_impurity_decrease,
         )
-        self.tree.build()
+        self.tree_.build()
 
         return self
 
@@ -666,7 +699,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes : array of shape[n_samples]
             The indices for each test sample's final node in the oblique tree.
         """
-        pred_nodes = self.tree.predict(X).astype(int)
+        pred_nodes = self.tree_.predict(X).astype(int)
         return pred_nodes
 
     def predict(self, X, check_input=True):
@@ -689,7 +722,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes = self.apply(X)
         for k in range(len(pred_nodes)):
             id = pred_nodes[k]
-            preds[k] = self.tree.nodes[id].label
+            preds[k] = self.tree_.nodes[id].label
 
         return preds
 
@@ -713,7 +746,7 @@ class ObliqueTreeClassifier(BaseEstimator):
         pred_nodes = self.apply(X)
         for k in range(len(preds)):
             id = pred_nodes[k]
-            preds[k] = self.tree.nodes[id].proba
+            preds[k] = self.tree_.nodes[id].proba
 
         return preds
 
@@ -737,3 +770,53 @@ class ObliqueTreeClassifier(BaseEstimator):
     # TODO: Actually do this function
     def _validate_X_predict(self, X, check_input=True):
         return X
+
+    @property
+    def feature_importances_(self):
+        """
+        Return the feature importances.
+        The importance of a feature is computed as the number of times it
+        is used in a projection across all split nodes
+
+        Returns
+        -------
+        feature_importances_ : ndarray of shape (n_features,)
+            Array of count-based feature importances.
+        """
+        check_is_fitted(self)
+
+        return self.tree_.compute_feature_importances()
+
+    def compute_projection_counts(self, unique_projections=None):
+        """
+        Counts the number of times each unique projection in the tree appears.
+
+        Parameters
+        ----------
+        unique_projections : ndarray of shape (n_proj,), optional
+            Array of unique projections to count, by default None
+
+        Returns
+        -------
+        projection_counts : ndarray of shape (n_proj,)
+            Counts of each unique projection used in this tree.
+        """
+        check_is_fitted(self)
+
+        if unique_projections is None:
+            projections = [
+                node.proj_vec
+                for node in self.tree_.nodes
+                if node.proj_vec is not None
+            ]
+            unique_projections, counts = np.unique(projections, axis=0, return_counts=True)
+            return counts, unique_projections
+        
+        # TODO: see if joblib will speed up at all for this for loop
+        n_proj = len(unique_projections)
+        counts = np.zeros(n_proj)
+        for node in self.tree_.nodes:
+            projection_idx = np.where((unique_projections == node.proj_vec).all(axis=1))
+            counts[projection_idx] += 1
+        
+        return counts, unique_projections

@@ -34,16 +34,16 @@ class TestBaseSplitter:
         assert 4 == j
 
     def test_matmul(self):
-        
+
         b = BOS()
 
         A = np.zeros((3, 3), dtype=np.float64)
         B = np.ones((3, 3), dtype=np.float64)
-        
+
         for i in range(3):
             for j in range(3):
-                A[i, j] = 3*i + j + 1
-        
+                A[i, j] = 3 * i + j + 1
+
         res = b.test_matmul(A, B)
 
         C = np.ones((3, 3), dtype=np.float64)
@@ -52,7 +52,6 @@ class TestBaseSplitter:
         C[2] = 24
 
         assert_allclose(C, res)
-
 
     def test_impurity(self):
 

@@ -1,4 +1,8 @@
+import numpy as np
+from joblib import Parallel, delayed
 from sklearn.ensemble._forest import ForestClassifier
+from sklearn.utils.validation import check_is_fitted
+from sklearn.utils.fixes import _joblib_parallel_args
 
 from .tree.morf_tree import Conv2DObliqueTreeClassifier
 
@@ -175,11 +179,55 @@ class Conv2DObliqueForestClassifier(ForestClassifier):  # noqa
         # self.min_impurity_split = min_impurity_split
 
         # s-rerf params
-        # self.discontiguous_height = discontiguous_height
-        # self.discontiguous_width = discontiguous_width
-        # self.image_height = image_height
-        # self.image_width = image_width
-        # self.patch_height_max = patch_height_max
-        # self.patch_height_min = patch_height_min
-        # self.patch_width_max = patch_width_max
-        # self.patch_width_min = patch_width_min
+        self.discontiguous_height = discontiguous_height
+        self.discontiguous_width = discontiguous_width
+        self.image_height = image_height
+        self.image_width = image_width
+        self.patch_height_max = patch_height_max
+        self.patch_height_min = patch_height_min
+        self.patch_width_max = patch_width_max
+        self.patch_width_min = patch_width_min
+
+    @property
+    def feature_importances_(self):
+        """
+        Computes the importance of every unique feature used to make a split
+        in each tree of the forest.
+
+        Parameters
+        ----------
+        normalize : bool, default=True
+            A boolean to indicate whether to normalize feature importances.
+
+        Returns
+        -------
+        importances : array of shape [n_features]
+            Array of count-based feature importances.
+        """
+        # TODO: Parallelize this and see if there is an equivalent way to express this better
+        # 1. Find all unique atoms in the forest
+        # 2. Compute number of times each atom appears across all trees
+        forest_projections = [
+            node.proj_vec
+            for tree in self.estimators_
+            if tree.tree_.node_count > 0
+            for node in tree.tree_.nodes
+            if node.proj_vec is not None
+        ]
+        unique_projections, counts = np.unique(
+            forest_projections, axis=0, return_counts=True
+        )
+
+        if counts.sum() == 0:
+            return np.zeros(self.n_features_, dtype=np.float64)
+
+        # 3. Count how many times each feature gets nonzero weight in unique projections
+        importances = np.zeros(self.n_features_)
+        for proj_vec, count in zip(unique_projections, counts):
+            importances[np.nonzero(proj_vec)] += count
+        
+        # 4. Normalize by number of unique projections
+        if len(unique_projections) > 0:
+            importances /= len(unique_projections)
+
+        return importances

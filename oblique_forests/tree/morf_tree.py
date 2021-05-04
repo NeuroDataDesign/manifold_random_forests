@@ -265,7 +265,7 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
         splitter = self._set_splitter(X, y)
 
         # create the Oblique tree
-        self.tree = ObliqueTree(
+        self.tree_ = ObliqueTree(
             splitter,
             self.min_samples_split,
             self.min_samples_leaf,
@@ -273,7 +273,7 @@ class Conv2DObliqueTreeClassifier(ObliqueTreeClassifier):
             self.min_impurity_split,
             self.min_impurity_decrease,
         )
-        self.tree.build()
+        self.tree_.build()
         return self
 
 
