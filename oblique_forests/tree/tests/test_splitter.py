@@ -6,7 +6,6 @@ import sys
 
 cython_test_modules = ["_test_splitter"]
 
-
 def cytest(func):
     """
     Wraps `func` in a plain Python function.

@@ -16,7 +16,13 @@ def configuration(parent_package="", top_path=None):  # noqa
         libraries=libraries,
         extra_compile_args=["-O3"],
     )
-
+    config.add_extension(
+        "_test_oblique_tree",
+        sources=["_test_oblique_tree.pyx"],
+        include_dirs=[numpy.get_include()],
+        libraries=libraries,
+        extra_compile_args=["-O3"],
+    )
     return config
 
 
