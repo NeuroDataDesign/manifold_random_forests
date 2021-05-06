@@ -3,8 +3,6 @@ import importlib
 import inspect
 import sys
 
-from oblique_forests.tree.tests._test_splitter import *
-
 
 cython_test_modules = ["_test_splitter"]
 

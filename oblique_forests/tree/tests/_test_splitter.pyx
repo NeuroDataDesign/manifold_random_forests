@@ -223,6 +223,8 @@ def test_node_split():
     assert 0 <= split.impurity_left <= 1
     assert 0 <= split.impurity_right <= 1
     assert split.proj_vec != NULL
+    for i in range(splitter.n_features):
+        assert split.proj_vec[i] == splitter.proj_mat[split.feature][i]
 
 
 # TODO: Write asserts for dest
@@ -250,10 +252,9 @@ def test_node_value():
     splitter.init(X, y, null_sample_weight)
     splitter.node_reset(0, splitter.n_samples, &weighted_n_node_samples)
     impurity = splitter.node_impurity()
-    
     splitter.node_split(impurity, &split, &n_constant_features)
 
     cdef double* dest
     splitter.node_value(dest)
-    print(sizeof(dest) / sizeof(dest[0]))
-    print(dereference(dest))
+    # print(sizeof(dest) / sizeof(dest[0]))
+    # print(dereference(dest))
