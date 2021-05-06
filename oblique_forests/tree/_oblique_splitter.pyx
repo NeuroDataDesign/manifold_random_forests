@@ -14,6 +14,7 @@ from libc.stdlib cimport free
 from libc.stdlib cimport qsort
 from libc.string cimport memcpy
 from libc.string cimport memset
+from libc.stdio cimport printf
 
 # allow sparse operations
 # from scipy.sparse import csc_matrixfrom ._criterion cimport Criterion
@@ -440,6 +441,8 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                     (end - current.pos) < min_samples_leaf):
 
                     continue
+
+                self.criterion.update(current.pos)
 
                 # reject if min_weight_leaf not satisfied
                 if (self.criterion.weighted_n_left < min_weight_leaf or

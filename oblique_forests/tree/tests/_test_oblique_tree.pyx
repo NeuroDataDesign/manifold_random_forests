@@ -1,12 +1,8 @@
-#cython: cdivision=True
 #cython: boundscheck=False
 #cython: wraparound=False
 #cython: language_level=3
 #cython: binding=True
 
-import functools
-import pytest
-import inspect
 import numpy as np
 cimport numpy as np
 from cython.operator import dereference
@@ -39,7 +35,11 @@ def test_cinit():
     y = np.ascontiguousarray(y, dtype=DOUBLE)
 
     n_outputs = 1
-    n_classes = np.array([n_outputs])
+    n_classes = []
+    for k in range(n_outputs):
+        classes_k = np.unique(y[:, k])
+        n_classes.append(classes_k.shape[0])
+    n_classes = np.array(n_classes, dtype=np.intp)
     criterion = Criterion(n_outputs, n_classes)
 
     cdef ObliqueTree tree = ObliqueTree(n_features, n_classes, n_outputs)
