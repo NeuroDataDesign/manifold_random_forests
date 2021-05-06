@@ -388,6 +388,8 @@ def test_classification_toy():
     # Check classification on a toy dataset.
     clf = DecisionTreeClassifier(random_state=0)
     clf.fit(X, y)
+
+    print(clf.decision_path(X))
     assert_array_equal(clf.predict(T), true_result)
 
 

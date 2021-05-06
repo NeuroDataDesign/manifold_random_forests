@@ -450,6 +450,9 @@ cdef class ObliqueTree:
         d["node_count"] = self.node_count
         d["nodes"] = self._get_node_ndarray()
         d["values"] = self._get_value_ndarray()
+
+        # TODO: added but not sure if it works
+        # d['proj_vecs'] = np.asarray(self.proj_vecs)
         return d
 
     def __setstate__(self, d):
@@ -638,17 +641,16 @@ cdef class ObliqueTree:
                 # While node not a leaf
                 while node.left_child != _TREE_LEAF:
                     # ... and node.right_child != _TREE_LEAF:
-                    
+
+                    # compute projection of the data based on trained tree
                     proj_feat = 0
                     proj_vec = self.proj_vecs[node_id]
-
                     for j in range(n_features):
                         proj_feat += X_ndarray[i, j] * proj_vec[j]
 
                     if proj_feat <= node.threshold:
                         node_id = node.left_child
                         node = &self.nodes[node.left_child]
-
                     else:
                         node_id = node.right_child
                         node = &self.nodes[node.right_child]
@@ -754,6 +756,7 @@ cdef class ObliqueTree:
         # Extract input
         cdef DTYPE_t[:, :] X_ndarray = X
         cdef SIZE_t n_samples = X.shape[0]
+        cdef SIZE_t n_features = X.shape[1]
 
         # Initialize output
         cdef np.ndarray[SIZE_t] indptr = np.zeros(n_samples + 1, dtype=np.intp)
@@ -767,6 +770,12 @@ cdef class ObliqueTree:
         # Initialize auxiliary data-structure
         cdef ObliqueNode* node = NULL
         cdef SIZE_t i = 0
+        cdef SIZE_t j = 0
+        cdef DTYPE_t proj_feat = 0
+        cdef DTYPE_t* proj_vec
+
+        # to traverse the nodes
+        cdef SIZE_t node_id = 0
 
         with nogil:
             for i in range(n_samples):
@@ -779,10 +788,24 @@ cdef class ObliqueTree:
                     indices_ptr[indptr_ptr[i + 1]] = <SIZE_t>(node - self.nodes)
                     indptr_ptr[i + 1] += 1
 
-                    if X_ndarray[i, node.feature] <= node.threshold:
+                    # if X_ndarray[i, node.feature] <= node.threshold:
+                    #     node = &self.nodes[node.left_child]
+                    # else:
+                    #     node = &self.nodes[node.right_child]
+
+                    # compute projection of the data based on trained tree
+                    proj_feat = 0
+                    proj_vec = self.proj_vecs[node_id]
+                    for j in range(n_features):
+                        proj_feat += X_ndarray[i, j] * proj_vec[j]
+
+                    if proj_feat <= node.threshold:
+                        node_id = node.left_child
                         node = &self.nodes[node.left_child]
                     else:
+                        node_id = node.right_child
                         node = &self.nodes[node.right_child]
+                    
 
                 # Add the leave node
                 indices_ptr[indptr_ptr[i + 1]] = <SIZE_t>(node - self.nodes)
