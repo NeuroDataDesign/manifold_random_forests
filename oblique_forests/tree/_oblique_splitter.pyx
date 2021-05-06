@@ -14,6 +14,7 @@ from libc.stdlib cimport free
 from libc.stdlib cimport qsort
 from libc.string cimport memcpy
 from libc.string cimport memset
+from libc.stdio cimport printf
 
 # allow sparse operations
 # from scipy.sparse import csc_matrixfrom ._criterion cimport Criterion
@@ -113,9 +114,10 @@ cdef class BaseObliqueSplitter:
         free(self.feature_values)
         print("freed feature_values")
         
-        for i in range(self.max_features):
-            free(self.proj_mat[i])
-        print("freed proj_mat vectors")
+        if self.proj_mat:
+            for i in range(self.max_features):
+                free(self.proj_mat[i])
+            print("freed proj_mat vectors")
 
         free(self.proj_mat)
         print("freed proj_mat")
@@ -439,6 +441,8 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                     (end - current.pos) < min_samples_leaf):
 
                     continue
+
+                self.criterion.update(current.pos)
 
                 # reject if min_weight_leaf not satisfied
                 if (self.criterion.weighted_n_left < min_weight_leaf or
