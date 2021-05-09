@@ -18,7 +18,7 @@
 
 from cpython cimport Py_INCREF, PyObject, PyTypeObject
 
-from libc.stdlib cimport free, malloc
+from libc.stdlib cimport free
 from libc.math cimport fabs
 from libc.string cimport memcpy
 from libc.string cimport memset
@@ -561,7 +561,8 @@ cdef class ObliqueTree:
                 self.nodes[parent].right_child = node_id
 
         # allocate memory for projection vector for this node
-        self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
+        self.proj_vecs[node_id] = NULL
+        safe_realloc(&self.proj_vecs[node_id], self.n_features)
 
         if is_leaf:
             node.left_child = _TREE_LEAF
@@ -635,10 +636,11 @@ cdef class ObliqueTree:
         with nogil:
             for i in range(n_samples):
                 node = self.nodes
+                node_id = 0
                 # While node not a leaf
                 while node.left_child != _TREE_LEAF:
                     # ... and node.right_child != _TREE_LEAF:
-                    
+
                     proj_feat = 0
                     proj_vec = self.proj_vecs[node_id]
 

@@ -9,7 +9,6 @@ from cython.operator import dereference
 np.import_array()
 
 from sklearn.utils import check_random_state
-from libc.stdio cimport printf
 
 from numpy import float32 as DTYPE
 from numpy import float64 as DOUBLE
@@ -24,7 +23,8 @@ from oblique_forests.tree._criterion import Gini
 from oblique_forests.tree._criterion cimport Criterion
 from oblique_forests.tree._oblique_splitter import ObliqueSplitter
 from oblique_forests.tree._oblique_splitter cimport BaseObliqueSplitter, ObliqueSplitRecord
-from oblique_forests.tree._oblique_tree cimport ObliqueTree
+from oblique_forests.tree._oblique_tree import DepthFirstTreeBuilder
+from oblique_forests.tree._oblique_tree cimport ObliqueTree, TreeBuilder
 
 TREE_UNDEFINED = -2
 cdef SIZE_t _TREE_UNDEFINED = TREE_UNDEFINED
@@ -49,12 +49,14 @@ DATASETS = {
     "zeros": {"X": np.zeros((20, 3)), "y": y_random}
 }
 
-max_depth = np.iinfo(np.int32).max
-min_samples_split = 2
-min_samples_leaf = 1
-min_weight_leaf = 0.
-max_features = 2
-feature_combinations = 1.5
+cdef SIZE_t max_depth = np.iinfo(np.int32).max
+cdef SIZE_t min_samples_split = 2
+cdef SIZE_t min_samples_leaf = 1
+cdef double min_weight_leaf = 0.
+cdef SIZE_t max_features = 2
+cdef double feature_combinations = 1.5
+cdef double min_impurity_split = 0.
+cdef double min_impurity_decrease = 0.
 cdef DOUBLE_t* null_sample_weight = NULL
 
 
@@ -103,10 +105,7 @@ def test_cinit():
     assert tree.proj_vecs == NULL
 
 
-# TODO
 def test_add_node():
-# Check if proj_vec is getting stored in node correctly
-# Check if node is stored in tree correctly
     X = DATASETS["toy"]["X"]
     y = DATASETS["toy"]["y"]
     X, y = prep_X_y(X, y)
@@ -158,26 +157,34 @@ def test_add_node():
     assert tree.proj_vecs != NULL
     assert tree.proj_vecs[node_id] != NULL
     for i in range(tree.n_features):
-        assert tree.proj_vecs[node_id][i] == split.proj_vec[i]
+        assert (tree.proj_vecs[node_id][i] 
+                == split.proj_vec[i] 
+                == splitter.proj_mat[split.feature][i])
 
-# def test_apply_dense():
-#     return
+def test_build_tree():
+    X = DATASETS["toy"]["X"]
+    y = DATASETS["toy"]["y"]
+    X, y = prep_X_y(X, y)
+    n_samples, n_features = X.shape
 
-# def test_resize():
-#     return
+    n_outputs = y.shape[1]
+    n_classes = []
+    for k in range(n_outputs):
+        classes_k = np.unique(y[:, k])
+        n_classes.append(classes_k.shape[0])
+    n_classes = np.array(n_classes, dtype=np.intp)
 
-# def test_resize_c():
-#     return
-
-# def test_get_value_ndarray():
-#     return
-
-# def test_get_node_ndarray():
-#     return
-
-
-# def test_apply_sparse_csr():
-#     return
-
-# def test_decision_path_dense():
-#     return
+    cdef Criterion criterion = Gini(n_outputs, n_classes)
+    cdef ObliqueTree tree = ObliqueTree(n_features, n_classes, n_outputs)
+    cdef BaseObliqueSplitter splitter = ObliqueSplitter(criterion, max_features, 
+                                                        min_samples_leaf, min_weight_leaf, 
+                                                        feature_combinations, random_state)
+    cdef TreeBuilder builder = DepthFirstTreeBuilder(splitter, min_samples_split,
+                                                     min_samples_leaf,
+                                                     min_weight_leaf,
+                                                     max_depth,
+                                                     min_impurity_decrease,
+                                                     min_impurity_split)
+    builder.build(tree, X, y)
+    assert tree.node_count > 0
+    assert tree.proj_vecs != NULL

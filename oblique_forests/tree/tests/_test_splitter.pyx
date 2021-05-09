@@ -25,6 +25,7 @@ from oblique_forests.tree._criterion import Gini
 from oblique_forests.tree._criterion cimport Criterion
 from oblique_forests.tree._oblique_splitter import ObliqueSplitter
 from oblique_forests.tree._oblique_splitter cimport BaseObliqueSplitter, ObliqueSplitRecord
+from oblique_forests.tree._utils cimport safe_realloc
 
 
 # Toy example
@@ -45,10 +46,10 @@ DATASETS = {
     "zeros": {"X": np.zeros((20, 3)), "y": y_random}
 }
 
-max_features = 2
-min_samples_leaf = 1
-min_weight_leaf = 0.
-feature_combinations = 1.5
+cdef SIZE_t max_features = 2
+cdef SIZE_t min_samples_leaf = 1
+cdef double min_weight_leaf = 0.
+cdef double feature_combinations = 1.5
 cdef DOUBLE_t* null_sample_weight = NULL
 
 
@@ -227,7 +228,6 @@ def test_node_split():
         assert split.proj_vec[i] == splitter.proj_mat[split.feature][i]
 
 
-# TODO: Write asserts for dest
 def test_node_value():
     X = DATASETS["toy"]["X"]
     y = DATASETS["toy"]["y"]
@@ -254,7 +254,12 @@ def test_node_value():
     impurity = splitter.node_impurity()
     splitter.node_split(impurity, &split, &n_constant_features)
 
-    cdef double* dest
+    cdef double* dest = NULL
+    cdef SIZE_t capacity = 1
+    cdef SIZE_t value_stride = n_outputs * max(n_classes)
+
+    safe_realloc(&dest, capacity * value_stride)
     splitter.node_value(dest)
-    # print(sizeof(dest) / sizeof(dest[0]))
-    # print(dereference(dest))
+
+    for i in range(n_classes[0]):
+        assert dest[i] == criterion.sum_total[i]
