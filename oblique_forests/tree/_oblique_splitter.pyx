@@ -96,7 +96,7 @@ cdef class BaseObliqueSplitter:
 
         # SPORF parameters
         self.feature_combinations = feature_combinations
-        self.proj_mat = NULL # n_features x max_features matrix. There are max_features vectors.
+        self.proj_mat = NULL # max_features x n_features matrix. There are max_features vectors.
         self.n_non_zeros = max(int(self.max_features * self.feature_combinations), 1)
         
     def __dealloc__(self):
@@ -355,11 +355,11 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
 
         for i in range(0, n_non_zeros):
 
-            feat_i = rand_int(0, n_features, random_state)
             proj_i = rand_int(0, max_features, random_state)
+            feat_i = rand_int(0, n_features, random_state)
             weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
 
-            proj_mat[feat_i][proj_i] = weight
+            proj_mat[proj_i][feat_i] = weight
     
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
                         SIZE_t* n_constant_features) nogil except -1:
