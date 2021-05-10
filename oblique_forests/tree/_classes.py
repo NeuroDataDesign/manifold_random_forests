@@ -105,6 +105,7 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                  random_state,
                  min_impurity_decrease,
                  min_impurity_split,
+                 feature_combinations,
                  class_weight=None,
                  ccp_alpha=0.0):
         self.criterion = criterion
@@ -120,6 +121,9 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self.min_impurity_split = min_impurity_split
         self.class_weight = class_weight
         self.ccp_alpha = ccp_alpha
+
+        # SPORF params
+        self.feature_combinations = feature_combinations
 
     def get_depth(self):
         """Return the depth of the decision tree.
@@ -373,13 +377,11 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
 
         splitter = self.splitter
         if not isinstance(self.splitter, BaseObliqueSplitter):
-            # TODO: put this in the __init__
-            feature_combinations = 1.5
             splitter = SPLITTERS[self.splitter](criterion,
                                                 self.max_features_,
                                                 min_samples_leaf,
                                                 min_weight_leaf,
-                                                feature_combinations,
+                                                self.feature_combinations,
                                                 random_state)
 
         if is_classifier(self):
@@ -879,6 +881,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             random_state=random_state,
             min_impurity_decrease=min_impurity_decrease,
             min_impurity_split=min_impurity_split,
+            feature_combinations=feature_combinations,
             ccp_alpha=ccp_alpha)
 
     def fit(self, X, y, sample_weight=None, check_input=True,
