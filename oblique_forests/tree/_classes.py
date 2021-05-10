@@ -867,7 +867,6 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
                  max_leaf_nodes=None,
                  min_impurity_decrease=0.,
                  min_impurity_split=None,
-                 feature_combinations=1.5,
                  class_weight=None,
                  ccp_alpha=0.0):
         super().__init__(
@@ -997,6 +996,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         """
         proba = self.predict_proba(X)
 
+        print('The probabilityies are: ', proba)
         if self.n_outputs_ == 1:
             return np.log(proba)
 

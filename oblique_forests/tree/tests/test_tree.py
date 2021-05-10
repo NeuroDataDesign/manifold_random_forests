@@ -8,6 +8,7 @@ from numpy.testing import (
 
 import pytest
 from oblique_forests.tree import DecisionTreeClassifier as OTC
+from oblique_forests.sporf import ObliqueForestClassifier
 from oblique_forests.utils import run_tests_if_main
 
 from sklearn import datasets
@@ -493,31 +494,11 @@ def test_xor():
     assert accuracy_score(clf.predict(X), y) == 1
 
 
-def test_xor():
-    # Check on a XOR problem
-    y = np.zeros((20, 20))
-    y[:10, :10] = 1
-    y[10:, 10:] = 1
-
-    gridx, gridy = np.indices(y.shape)
-
-    X = np.vstack([gridx.ravel(), gridy.ravel()]).T
-    y = y.ravel()
-
-    # Changing feature parameters from default 1.5 to 2 makes this test pass.
-    clf = DecisionTreeClassifier(
-        # random_state=1234, 
-        feature_combinations=2)
-    clf.fit(X, y)
-
-    assert accuracy_score(clf.predict(X), y) == 1
-
-
 def test_iris():
 
-    clf = DecisionTreeClassifier(
-        # random_state=0
-        )
+    clf = OTC(
+        random_state=0
+    )
 
     clf.fit(iris.data, iris.target)
     score = accuracy_score(clf.predict(iris.data), iris.target)
@@ -557,7 +538,7 @@ def test_probability():
 
 
 def test_tree():
-    clf = DecisionTreeClassifier()
+    clf = OTC()
 
     clf.fit(iris.data, iris.target)
     score = accuracy_score(clf.predict(iris.data), iris.target)
@@ -572,11 +553,16 @@ def test_diabetes():
     to check consistency like iris.
     """
 
-    clf = OTC(random_state=0)
+    clf = OTC(random_state=1234)
 
     clf.fit(diabetes.data, diabetes.target)
     score = accuracy_score(clf.predict(diabetes.data), diabetes.target)
-    assert score > 0.9
+    # assert score > 0.9
+
+    clf = ObliqueForestClassifier(random_state=1234)
+    clf.fit(diabetes.data, diabetes.target)
+    score = accuracy_score(clf.predict(diabetes.data), diabetes.target)
+    assert score == 1.0
 
 
 def test_probability():

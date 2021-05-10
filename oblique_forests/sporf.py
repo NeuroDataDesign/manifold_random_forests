@@ -1,7 +1,7 @@
 from sklearn.ensemble._forest import ForestClassifier
 
-from .tree.oblique_tree import ObliqueTreeClassifier
-
+# from .tree.oblique_tree import ObliqueTreeClassifier
+from .tree import DecisionTreeClassifier
 
 class ObliqueForestClassifier(ForestClassifier):
     """Sparse projection oblique forest classifier (SPORF).
@@ -62,7 +62,7 @@ class ObliqueForestClassifier(ForestClassifier):
         max_samples=None,
     ):
         super().__init__(
-            base_estimator=ObliqueTreeClassifier(),
+            base_estimator=DecisionTreeClassifier(),
             n_estimators=n_estimators,
             estimator_params=(
                 "max_depth",
