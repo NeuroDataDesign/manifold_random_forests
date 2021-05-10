@@ -8,6 +8,7 @@ cimport numpy as np
 from cython.operator import dereference
 np.import_array()
 
+from sklearn import datasets
 from sklearn.utils import check_random_state
 
 from numpy import float32 as DTYPE
@@ -19,7 +20,7 @@ ctypedef np.npy_intp SIZE_t              # Type for indices and counters
 ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
 ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
 
-from oblique_forests.tree._criterion import Gini
+from oblique_forests.tree._criterion import Gini, MSE
 from oblique_forests.tree._criterion cimport Criterion
 from oblique_forests.tree._oblique_splitter import ObliqueSplitter
 from oblique_forests.tree._oblique_splitter cimport BaseObliqueSplitter, ObliqueSplitRecord
@@ -40,12 +41,19 @@ true_result = [-1, 1, 1]
 X = np.asfortranarray(X, dtype=DTYPE)
 y = np.ascontiguousarray(y, dtype=DOUBLE)
 
-# Random labels
+# Diabetes dataset
 random_state = check_random_state(0)
+diabetes = datasets.load_diabetes()
+perm = random_state.permutation(diabetes.target.size)
+diabetes.data = diabetes.data[perm]
+diabetes.target = diabetes.target[perm]
+
+# Random labels
 y_random = random_state.randint(0, 4, size=(20, ))
 
 DATASETS = {
     "toy": {"X": X, "y": y},
+    "diabetes": {"X": diabetes.data, "y": diabetes.target},
     "zeros": {"X": np.zeros((20, 3)), "y": y_random}
 }
 
@@ -161,6 +169,7 @@ def test_add_node():
                 == split.proj_vec[i] 
                 == splitter.proj_mat[split.feature][i])
 
+
 def test_build_tree():
     X = DATASETS["toy"]["X"]
     y = DATASETS["toy"]["y"]
@@ -175,6 +184,35 @@ def test_build_tree():
     n_classes = np.array(n_classes, dtype=np.intp)
 
     cdef Criterion criterion = Gini(n_outputs, n_classes)
+    cdef ObliqueTree tree = ObliqueTree(n_features, n_classes, n_outputs)
+    cdef BaseObliqueSplitter splitter = ObliqueSplitter(criterion, max_features, 
+                                                        min_samples_leaf, min_weight_leaf, 
+                                                        feature_combinations, random_state)
+    cdef TreeBuilder builder = DepthFirstTreeBuilder(splitter, min_samples_split,
+                                                     min_samples_leaf,
+                                                     min_weight_leaf,
+                                                     max_depth,
+                                                     min_impurity_decrease,
+                                                     min_impurity_split)
+    builder.build(tree, X, y)
+    assert tree.node_count > 0
+    assert tree.proj_vecs != NULL
+
+
+def test_diabetes():
+    X = DATASETS["diabetes"]["X"]
+    y = DATASETS["diabetes"]["y"]
+    X, y = prep_X_y(X, y)
+    n_samples, n_features = X.shape
+
+    n_outputs = y.shape[1]
+    n_classes = []
+    for k in range(n_outputs):
+        classes_k = np.unique(y[:, k])
+        n_classes.append(classes_k.shape[0])
+    n_classes = np.array(n_classes, dtype=np.intp)
+
+    cdef Criterion criterion = MSE(n_outputs, n_samples)
     cdef ObliqueTree tree = ObliqueTree(n_features, n_classes, n_outputs)
     cdef BaseObliqueSplitter splitter = ObliqueSplitter(criterion, max_features, 
                                                         min_samples_leaf, min_weight_leaf, 

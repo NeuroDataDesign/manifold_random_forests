@@ -862,7 +862,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
-                 max_features="auto",
+                 max_features=None,
                  random_state=None,
                  max_leaf_nodes=None,
                  min_impurity_decrease=0.,
@@ -1221,11 +1221,12 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
-                 max_features="auto",
+                 max_features=None,
                  random_state=None,
                  max_leaf_nodes=None,
                  min_impurity_decrease=0.,
                  min_impurity_split=None,
+                 feature_combinations=1.5,
                  ccp_alpha=0.0):
         super().__init__(
             criterion=criterion,
@@ -1239,6 +1240,7 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
             random_state=random_state,
             min_impurity_decrease=min_impurity_decrease,
             min_impurity_split=min_impurity_split,
+            feature_combinations=1.5,
             ccp_alpha=ccp_alpha)
 
     def fit(self, X, y, sample_weight=None, check_input=True,
