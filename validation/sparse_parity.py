@@ -83,8 +83,13 @@ def test_of(n, reps, n_estimators, feature_combinations, max_features):
 
 def main():
 
+    # How many samples to train on
     n = 10000
+
+    # How many repetitions 
     reps = 3
+
+    # Tree parameters
     n_estimators = 100
     feature_combinations = 2 
     max_features = 1.0
