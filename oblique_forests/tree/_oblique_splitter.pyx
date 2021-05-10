@@ -103,24 +103,24 @@ cdef class BaseObliqueSplitter:
         """Destructor."""
 
         free(self.samples)
-        print("freed samples")
+        # print("freed samples")
 
         free(self.features)
-        print("freed features")
+        # print("freed features")
 
         free(self.constant_features)
-        print("freed constant_features")
+        # print("freed constant_features")
 
         free(self.feature_values)
-        print("freed feature_values")
+        # print("freed feature_values")
         
         if self.proj_mat:
             for i in range(self.max_features):
                 free(self.proj_mat[i])
-            print("freed proj_mat vectors")
+            # print("freed proj_mat vectors")
 
         free(self.proj_mat)
-        print("freed proj_mat")
+        # print("freed proj_mat")
 
     def __getstate__(self):
         return {}
@@ -156,7 +156,7 @@ cdef class BaseObliqueSplitter:
         X_idx_sorted : ndarray, default=None
             The indexes of the sorted training input samples
         """
-        print('inside split init...')
+        # print('inside split init...')
         self.rand_r_state = self.random_state.randint(0, RAND_R_MAX)
         cdef SIZE_t n_samples = X.shape[0]
 
@@ -168,7 +168,7 @@ cdef class BaseObliqueSplitter:
         cdef double weighted_n_samples = 0.0
         j = 0
 
-        print('Initializing sample weights...')
+        # print('Initializing sample weights...')
         for i in range(n_samples):
             # Only work with positively weighted samples
             if sample_weight == NULL or sample_weight[i] != 0.0:
@@ -192,15 +192,15 @@ cdef class BaseObliqueSplitter:
 
         self.n_features = n_features
 
-        print('About to safe realloc...')
+        # print('About to safe realloc...')
         safe_realloc(&self.feature_values, n_samples)
-        print('Safe reallocated feature values..')
+        # print('Safe reallocated feature values..')
         safe_realloc(&self.constant_features, n_features)
-        print('After second...')
+        # print('After second...')
         self.y = y
 
         self.sample_weight = sample_weight
-        print('Finished init...')
+        # print('Finished init...')
  
         return 0
 
@@ -288,9 +288,6 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
                   SIZE_t min_samples_leaf, double min_weight_leaf,
                   double feature_combinations,
                   object random_state):
-
-        print("Splitter build...")
-
         self.X_idx_sorted_ptr = NULL
         self.X_idx_sorted_stride = 0
         self.sample_mask = NULL
@@ -312,18 +309,13 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         BaseObliqueSplitter.init(self, X, y, sample_weight)
 
         self.X = X
-        print('About to allocate projection matrix...')
         # TODO: throw memory error if this fails!
         self.proj_mat = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
 
-        print('Malloced proj mat..')
         cdef SIZE_t i, j
         for i in range(self.max_features):
-            print('Mallocing vectors...')
-
             self.proj_mat[i] = <DTYPE_t*> malloc(self.n_features * (sizeof(DTYPE_t)))
 
-            print('success...')
             for j in range(self.n_features):
                 self.proj_mat[i][j] = 0
 

@@ -73,7 +73,7 @@ class ObliqueForestClassifier(ForestClassifier):
                 "feature_combinations",
                 #   "max_leaf_nodes",
                 #   "min_impurity_decrease", "min_impurity_split",
-                "random_state",
+                # "random_state",
             ),
             bootstrap=bootstrap,
             oob_score=oob_score,

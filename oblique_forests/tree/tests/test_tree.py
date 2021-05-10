@@ -515,35 +515,6 @@ def test_iris():
     assert score > 0.9
 
 
-def test_diabetes():
-
-    """
-    Diabetes should overfit with MSE = 0 for normal trees.
-    idk if this applies to sporf, so this is just a placeholder
-    to check consistency like iris.
-    """
-
-    reg = OTR(random_state=0, feature_combinations=1.5, max_features="auto")
-
-    reg.fit(diabetes.data, diabetes.target)
-    score = mean_squared_error(reg.predict(diabetes.data), diabetes.target)
-    assert score == pytest.approx(0)
-
-def test_probability():
-
-    clf = DecisionTreeClassifier()
-
-    clf.fit(iris.data, iris.target)
-    p = clf.predict_proba(iris.data)
-
-    assert_array_almost_equal(np.sum(p, 1), np.ones(iris.data.shape[0]))
-
-    assert_array_equal(np.argmax(p, 1), clf.predict(iris.data))
-
-    assert_almost_equal(
-        clf.predict_proba(iris.data), np.exp(clf.predict_log_proba(iris.data))
-    )
-
 
 def test_tree():
     clf = OTC()
@@ -572,6 +543,12 @@ def test_diabetes():
     score = accuracy_score(clf.predict(diabetes.data), diabetes.target)
     assert score == 1.0
 
+    # test regression case
+    reg = OTR(random_state=0, feature_combinations=1.5, max_features="auto")
+
+    reg.fit(diabetes.data, diabetes.target)
+    score = mean_squared_error(reg.predict(diabetes.data), diabetes.target)
+    assert score == pytest.approx(0)
 
 def test_probability():
 

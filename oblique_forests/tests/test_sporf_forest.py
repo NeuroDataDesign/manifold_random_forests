@@ -14,10 +14,10 @@ from oblique_forests.sporf import ObliqueForestClassifier
 def test_sparse_parity():
 
     clf = ObliqueForestClassifier(
-        random_state=0,
-        n_estimators=100,
+        random_state=1,
+        n_estimators=500,
         max_features=1.0,
-        feature_combinations=2,
+        feature_combinations=2.0,
         n_jobs=-1,
     )
 
@@ -40,10 +40,10 @@ def test_sparse_parity():
 def test_orthant():
 
     clf = ObliqueForestClassifier(
-        random_state=0,
-        n_estimators=100,
+        random_state=1,
+        n_estimators=500,
         max_features=1.0,
-        feature_combinations=2,
+        feature_combinations=2.0,
         n_jobs=-1,
     )
 
