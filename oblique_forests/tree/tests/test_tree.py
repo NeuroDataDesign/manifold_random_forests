@@ -8,9 +8,10 @@ from numpy.testing import (
 
 import pytest
 from oblique_forests.tree import DecisionTreeClassifier as OTC
+from oblique_forests.tree import DecisionTreeRegressor as OTR
 
 from sklearn import datasets
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 
 """
 Sklearn test_tree.py stuff
@@ -441,7 +442,7 @@ diabetes.target = diabetes.target[perm]
 
 def test_classification_toy():
     # Check classification on a toy dataset.
-    clf = OTC(random_state=1)
+    clf = OTC(random_state=0, max_features="auto")
     clf.fit(X, y)
     assert_array_equal(clf.predict(T), true_result)
 
@@ -451,6 +452,17 @@ def test_classification_toy():
     clf.fit(X, y)
     assert_array_equal(clf.predict(T), true_result)
     """
+
+
+def test_weighted_classification_toy():
+    # Check classification on a weighted toy dataset.
+    clf = OTC(random_state=0, max_features="auto")
+
+    clf.fit(X, y, sample_weight=np.ones(len(X)))
+    assert_array_equal(clf.predict(T), true_result)
+
+    clf.fit(X, y, sample_weight=np.full(len(X), 0.5))
+    assert_array_equal(clf.predict(T), true_result)
 
 
 def test_xor():
@@ -467,15 +479,15 @@ def test_xor():
 
     # Changing feature parameters from default 1.5 to 2 makes this test pass.
     # clf = OTC(random_state=0, feature_combinations=2)
-    clf = OTC(random_state=28, feature_combinations=1.5)
+    clf = OTC(random_state=28, feature_combinations=1.5, max_features="auto")
     clf.fit(X, y)
 
-    assert accuracy_score(clf.predict(X), y) == 1
+    assert accuracy_score(clf.predict(X), y) == 1.0
 
 
 def test_iris():
 
-    clf = OTC(random_state=0)
+    clf = OTC(random_state=0, max_features="auto")
 
     clf.fit(iris.data, iris.target)
     score = accuracy_score(clf.predict(iris.data), iris.target)
@@ -490,16 +502,16 @@ def test_diabetes():
     to check consistency like iris.
     """
 
-    clf = OTC(random_state=0)
+    reg = OTR(random_state=0, feature_combinations=1.5, max_features="auto")
 
-    clf.fit(diabetes.data, diabetes.target)
-    score = accuracy_score(clf.predict(diabetes.data), diabetes.target)
-    assert score > 0.9
+    reg.fit(diabetes.data, diabetes.target)
+    score = mean_squared_error(reg.predict(diabetes.data), diabetes.target)
+    assert score == pytest.approx(0)
 
 
 def test_probability():
 
-    clf = OTC(random_state=0)
+    clf = OTC(random_state=0, max_features="auto")
 
     clf.fit(iris.data, iris.target)
     p = clf.predict_proba(iris.data)
@@ -515,7 +527,7 @@ def test_probability():
 
 def test_pure_set():
 
-    clf = OTC(random_state=0)
+    clf = OTC(random_state=0, max_features="auto")
 
     X = [[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1]]
     y = [1, 1, 1, 1, 1, 1]
