@@ -43,6 +43,12 @@ def configuration(parent_package="", top_path=None):  # noqa
     #                 libraries=libraries,
     #                 extra_compile_args=["-O3"],
     # )
+    config.add_extension("_split",
+                    sources=["_split.pyx"],
+                    include_dirs=[numpy.get_include()],
+                    libraries=libraries,
+                    extra_compile_args=["-O3"],
+    )
     config.add_extension("_criterion",
                     sources=["_criterion.pyx"],
                     include_dirs=[numpy.get_include()],
