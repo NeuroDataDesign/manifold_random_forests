@@ -28,6 +28,7 @@ cover
 
 *.so 
 *.cpp 
+*.c
 
 .cache
 .pytest_cache

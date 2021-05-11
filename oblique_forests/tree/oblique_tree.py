@@ -5,6 +5,7 @@ from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from ._split import BaseObliqueSplitter
+from ._oblique_splitter import ObliqueSplitter as newObliqueSplitter
 from .oblique_base import BaseManifoldSplitter, Node, SplitInfo, StackRecord
 
 
@@ -80,7 +81,7 @@ class ObliqueSplitter(BaseManifoldSplitter):
         self.n_non_zeros = max(int(self.proj_dims * feature_combinations), 1)
 
         # Base oblique splitter in cython
-        self.BOS = BaseObliqueSplitter()
+        self.BOS = BaseObliqueSplitter(X, y, max_features, feature_combinations, random_state)
 
         # Temporary debugging parameter, turns off oblique splits
         self.debug = False
@@ -196,9 +197,9 @@ class ObliqueSplitter(BaseManifoldSplitter):
 
         # Assign types to everything
         # TODO: assign types when making the splitter class. This is silly.
-        proj_X = np.array(proj_X, dtype=np.float64)
+        proj_X = np.array(proj_X, dtype=np.float32)
         y_sample = np.array(y_sample, dtype=np.float64)
-        sample_inds = np.array(sample_inds, dtype=np.intc)
+        sample_inds = np.array(sample_inds, dtype=np.intp)
 
         # Call cython splitter
         (
@@ -632,7 +633,7 @@ class ObliqueTreeClassifier(BaseEstimator):
             The fit classifier.
         """
         splitter = ObliqueSplitter(
-            X, y, self.max_features, self.feature_combinations, self.random_state
+            X, y.ravel(), self.max_features, self.feature_combinations, self.random_state
         )
         self.n_classes = splitter.n_classes
 

@@ -31,8 +31,8 @@ if __SKLEARN_SETUP__:
     # We are not importing the rest of scikit-learn during the build
     # process, as it may not be compiled yet
 else:
-    from sklearn import __check_build
-
+    from . import __check_build
+    from .utils._show_versions import show_versions
     __check_build  # avoid flakes unused variable error
 
     __all__ = ["tree"]

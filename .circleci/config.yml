@@ -6,25 +6,34 @@ jobs:
     docker:
       - image: circleci/python:3.8.1-buster
     environment:
-      CODECOV_TOKEN: "cb142a98-9da3-4fc9-b6b5-ed62b9809d16"
+      - CODECOV_TOKEN: "cb142a98-9da3-4fc9-b6b5-ed62b9809d16"
+      - OMP_NUM_THREADS: 2
+      - MKL_NUM_THREADS: 2
+      - MINICONDA_PATH: ~/miniconda
+      - CONDA_ENV_NAME: testenv
+      - PYTHON_VERSION: 3.5
+      - NUMPY_VERSION: 1.11.0
+      - SCIPY_VERSION: 0.17.0
+      - MATPLOTLIB_VERSION: 1.5.1
+      - CYTHON_VERSION: 0.28.5
+      - SCIKIT_IMAGE_VERSION: 0.12.3
     steps:
       - checkout
 
       # make sure pandoc is on the system
       - run: sudo apt-get update && sudo apt-get install -y pandoc
 
-      # restore cache from last build. Unless __init__.py has changed since then
       - restore_cache:
           keys:
-            - data-cache-0-{{ checksum "./morf/__init__.py" }}
-
-      # Also restore pip cache to speed up installations
-      - restore_cache: # ensure this step occurs *before* installing dependencies
-          keys:
-            # when lock file changes, use increasingly general patterns to restore cache
-            - pip-packages-v1-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
-            - pip-packages-v1-{{ .Branch }}-
-            - pip-packages-v1-
+            - doc-min-deps-ccache-{{ .Branch }}
+            - doc-min-deps-ccache
+            
+      - run: ./build_tools/circle/build_doc.sh
+      - save_cache:
+          key: doc-min-deps-ccache-{{ .Branch }}-{{ .BuildNum }}
+          paths:
+            - ~/.ccache
+            - ~/.cache/pip
 
       - run:
           name: Setup Python environment via Pipenv
