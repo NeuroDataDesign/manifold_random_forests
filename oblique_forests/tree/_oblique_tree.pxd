@@ -19,6 +19,7 @@ ctypedef np.npy_intp SIZE_t              # Type for indices and counters
 ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
 ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
 
+from ._tree cimport Node, Tree
 from ._oblique_splitter cimport BaseObliqueSplitter
 from ._oblique_splitter cimport ObliqueSplitRecord
 
@@ -53,7 +54,7 @@ cdef class ObliqueTree:
     cdef public SIZE_t max_depth         # Max depth of the tree
     cdef public SIZE_t node_count        # Counter for node IDs
     cdef public SIZE_t capacity          # Capacity of tree, in terms of nodes
-    cdef ObliqueNode* nodes              # Array of oblique nodes
+    cdef ObliqueNode* nodes                     # Array of "oblique" nodes
     cdef double* value                   # (capacity, n_outputs, max_n_classes) array of values
     cdef SIZE_t value_stride             # = n_outputs * max_n_classes
 

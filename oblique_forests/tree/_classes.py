@@ -36,11 +36,16 @@ from sklearn.utils import compute_sample_weight
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import _deprecate_positional_args
-from sklearn.tree._classes import BaseDecisionTree
 
 from ._criterion import Criterion
+from ._splitter import Splitter
+from ._tree import DepthFirstTreeBuilder
+from ._tree import BestFirstTreeBuilder
+from ._tree import Tree
+from ._tree import _build_pruned_tree_ccp
+from ._tree import ccp_pruning_path
 from ._oblique_splitter import BaseObliqueSplitter
-from ._oblique_tree import DepthFirstTreeBuilder
+from ._oblique_tree import ObliqueDepthFirstTreeBuilder
 from ._oblique_tree import ObliqueTree
 from . import _oblique_tree, _oblique_splitter, _criterion, _splitter#, _tree
 
@@ -66,13 +71,20 @@ CRITERIA_REG = {
     "mse": _criterion.MSE,
     "friedman_mse": _criterion.FriedmanMSE,
     "mae": _criterion.MAE,
-    "poisson": _criterion.Poisson
+    # "poisson": _criterion.Poisson
 }
 
-DENSE_SPLITTERS = {
+OBLIQUE_DENSE_SPLITTERS = {
     "best": _oblique_splitter.ObliqueSplitter,
-    # "random": _oblique_splitter.RandomSplitter
 }
+
+OBLIQUE_SPARSE_SPLITTERS = {
+    # "best": _oblique_splitter.ObliqueSplitter,
+}
+
+DENSE_SPLITTERS = {"best": _splitter.BestSplitter,
+                   "random": _splitter.RandomSplitter}
+
 
 SPARSE_SPLITTERS = {
     "best": _splitter.BestSparseSplitter,
@@ -82,6 +94,562 @@ SPARSE_SPLITTERS = {
 # =============================================================================
 # Base decision tree
 # =============================================================================
+
+# copied from sklearn -> just need to add private methods for setting builder
+# tree and splitter
+class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
+    """Base class for decision trees.
+
+    Warning: This class should not be used directly.
+    Use derived classes instead.
+    """
+
+    @abstractmethod
+    @_deprecate_positional_args
+    def __init__(self, *,
+                 criterion,
+                 splitter,
+                 max_depth,
+                 min_samples_split,
+                 min_samples_leaf,
+                 min_weight_fraction_leaf,
+                 max_features,
+                 max_leaf_nodes,
+                 random_state,
+                 min_impurity_decrease,
+                 min_impurity_split,
+                 class_weight=None,
+                 ccp_alpha=0.0):
+        self.criterion = criterion
+        self.splitter = splitter
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.min_weight_fraction_leaf = min_weight_fraction_leaf
+        self.max_features = max_features
+        self.max_leaf_nodes = max_leaf_nodes
+        self.random_state = random_state
+        self.min_impurity_decrease = min_impurity_decrease
+        self.min_impurity_split = min_impurity_split
+        self.class_weight = class_weight
+        self.ccp_alpha = ccp_alpha
+
+    def get_depth(self):
+        """Return the depth of the decision tree.
+
+        The depth of a tree is the maximum distance between the root
+        and any leaf.
+
+        Returns
+        -------
+        self.tree_.max_depth : int
+            The maximum depth of the tree.
+        """
+        check_is_fitted(self)
+        return self.tree_.max_depth
+
+    def get_n_leaves(self):
+        """Return the number of leaves of the decision tree.
+
+        Returns
+        -------
+        self.tree_.n_leaves : int
+            Number of leaves.
+        """
+        check_is_fitted(self)
+        return self.tree_.n_leaves
+
+    def fit(self, X, y, sample_weight=None, check_input=True,
+            X_idx_sorted="deprecated"):
+
+        random_state = check_random_state(self.random_state)
+
+        if self.ccp_alpha < 0.0:
+            raise ValueError("ccp_alpha must be greater than or equal to 0")
+
+        if check_input:
+            # Need to validate separately here.
+            # We can't pass multi_ouput=True because that would allow y to be
+            # csr.
+            check_X_params = dict(dtype=DTYPE, accept_sparse="csc")
+            check_y_params = dict(ensure_2d=False, dtype=None)
+            X, y = self._validate_data(X, y,
+                                       validate_separately=(check_X_params,
+                                                            check_y_params))
+            if issparse(X):
+                X.sort_indices()
+
+                if X.indices.dtype != np.intc or X.indptr.dtype != np.intc:
+                    raise ValueError("No support for np.int64 index based "
+                                     "sparse matrices")
+
+            if self.criterion == "poisson":
+                if np.any(y < 0):
+                    raise ValueError("Some value(s) of y are negative which is"
+                                     " not allowed for Poisson regression.")
+                if np.sum(y) <= 0:
+                    raise ValueError("Sum of y is not positive which is "
+                                     "necessary for Poisson regression.")
+
+        # Determine output settings
+        n_samples, self.n_features_ = X.shape
+        self.n_features_in_ = self.n_features_
+        is_classification = is_classifier(self)
+
+        y = np.atleast_1d(y)
+        expanded_class_weight = None
+
+        if y.ndim == 1:
+            # reshape is necessary to preserve the data contiguity against vs
+            # [:, np.newaxis] that does not.
+            y = np.reshape(y, (-1, 1))
+
+        self.n_outputs_ = y.shape[1]
+
+        if is_classification:
+            check_classification_targets(y)
+            y = np.copy(y)
+
+            self.classes_ = []
+            self.n_classes_ = []
+
+            if self.class_weight is not None:
+                y_original = np.copy(y)
+
+            y_encoded = np.zeros(y.shape, dtype=int)
+            for k in range(self.n_outputs_):
+                classes_k, y_encoded[:, k] = np.unique(y[:, k],
+                                                       return_inverse=True)
+                self.classes_.append(classes_k)
+                self.n_classes_.append(classes_k.shape[0])
+            y = y_encoded
+
+            if self.class_weight is not None:
+                expanded_class_weight = compute_sample_weight(
+                    self.class_weight, y_original)
+
+            self.n_classes_ = np.array(self.n_classes_, dtype=np.intp)
+
+        if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
+            y = np.ascontiguousarray(y, dtype=DOUBLE)
+
+        # Check parameters
+        max_depth = (np.iinfo(np.int32).max if self.max_depth is None
+                     else self.max_depth)
+        max_leaf_nodes = (-1 if self.max_leaf_nodes is None
+                          else self.max_leaf_nodes)
+
+        if isinstance(self.min_samples_leaf, numbers.Integral):
+            if not 1 <= self.min_samples_leaf:
+                raise ValueError("min_samples_leaf must be at least 1 "
+                                 "or in (0, 0.5], got %s"
+                                 % self.min_samples_leaf)
+            min_samples_leaf = self.min_samples_leaf
+        else:  # float
+            if not 0. < self.min_samples_leaf <= 0.5:
+                raise ValueError("min_samples_leaf must be at least 1 "
+                                 "or in (0, 0.5], got %s"
+                                 % self.min_samples_leaf)
+            min_samples_leaf = int(ceil(self.min_samples_leaf * n_samples))
+
+        if isinstance(self.min_samples_split, numbers.Integral):
+            if not 2 <= self.min_samples_split:
+                raise ValueError("min_samples_split must be an integer "
+                                 "greater than 1 or a float in (0.0, 1.0]; "
+                                 "got the integer %s"
+                                 % self.min_samples_split)
+            min_samples_split = self.min_samples_split
+        else:  # float
+            if not 0. < self.min_samples_split <= 1.:
+                raise ValueError("min_samples_split must be an integer "
+                                 "greater than 1 or a float in (0.0, 1.0]; "
+                                 "got the float %s"
+                                 % self.min_samples_split)
+            min_samples_split = int(ceil(self.min_samples_split * n_samples))
+            min_samples_split = max(2, min_samples_split)
+
+        min_samples_split = max(min_samples_split, 2 * min_samples_leaf)
+
+        if isinstance(self.max_features, str):
+            if self.max_features == "auto":
+                if is_classification:
+                    max_features = max(1, int(np.sqrt(self.n_features_)))
+                else:
+                    max_features = self.n_features_
+            elif self.max_features == "sqrt":
+                max_features = max(1, int(np.sqrt(self.n_features_)))
+            elif self.max_features == "log2":
+                max_features = max(1, int(np.log2(self.n_features_)))
+            else:
+                raise ValueError("Invalid value for max_features. "
+                                 "Allowed string values are 'auto', "
+                                 "'sqrt' or 'log2'.")
+        elif self.max_features is None:
+            max_features = self.n_features_
+        elif isinstance(self.max_features, numbers.Integral):
+            max_features = self.max_features
+        else:  # float
+            if self.max_features > 0.0:
+                max_features = max(1,
+                                   int(self.max_features * self.n_features_))
+            else:
+                max_features = 0
+
+        self.max_features_ = max_features
+
+        if len(y) != n_samples:
+            raise ValueError("Number of labels=%d does not match "
+                             "number of samples=%d" % (len(y), n_samples))
+        if not 0 <= self.min_weight_fraction_leaf <= 0.5:
+            raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
+        if max_depth <= 0:
+            raise ValueError("max_depth must be greater than zero. ")
+        if not (0 < max_features <= self.n_features_):
+            raise ValueError("max_features must be in (0, n_features]")
+        if not isinstance(max_leaf_nodes, numbers.Integral):
+            raise ValueError("max_leaf_nodes must be integral number but was "
+                             "%r" % max_leaf_nodes)
+        if -1 < max_leaf_nodes < 2:
+            raise ValueError(("max_leaf_nodes {0} must be either None "
+                              "or larger than 1").format(max_leaf_nodes))
+
+        if sample_weight is not None:
+            sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
+
+        if expanded_class_weight is not None:
+            if sample_weight is not None:
+                sample_weight = sample_weight * expanded_class_weight
+            else:
+                sample_weight = expanded_class_weight
+
+        # Set min_weight_leaf from min_weight_fraction_leaf
+        if sample_weight is None:
+            min_weight_leaf = (self.min_weight_fraction_leaf *
+                               n_samples)
+        else:
+            min_weight_leaf = (self.min_weight_fraction_leaf *
+                               np.sum(sample_weight))
+
+        min_impurity_split = self.min_impurity_split
+        if min_impurity_split is not None:
+            warnings.warn(
+                "The min_impurity_split parameter is deprecated. Its default "
+                "value has changed from 1e-7 to 0 in version 0.23, and it "
+                "will be removed in 1.0 (renaming of 0.25). Use the "
+                "min_impurity_decrease parameter instead.",
+                FutureWarning
+            )
+
+            if min_impurity_split < 0.:
+                raise ValueError("min_impurity_split must be greater than "
+                                 "or equal to 0")
+        else:
+            min_impurity_split = 0
+
+        if self.min_impurity_decrease < 0.:
+            raise ValueError("min_impurity_decrease must be greater than "
+                             "or equal to 0")
+
+        # TODO: Remove in 1.1
+        if X_idx_sorted != "deprecated":
+            warnings.warn(
+                "The parameter 'X_idx_sorted' is deprecated and has no "
+                "effect. It will be removed in 1.1 (renaming of 0.26). You "
+                "can suppress this warning by not passing any value to the "
+                "'X_idx_sorted' parameter.",
+                FutureWarning
+            )
+
+        # Build tree
+        criterion = self.criterion
+        if not isinstance(criterion, Criterion):
+            if is_classification:
+                criterion = CRITERIA_CLF[self.criterion](self.n_outputs_,
+                                                         self.n_classes_)
+            else:
+                criterion = CRITERIA_REG[self.criterion](self.n_outputs_,
+                                                         n_samples)
+            # TODO: Remove in v1.2
+            if self.criterion == "mse":
+                warnings.warn(
+                    "Criterion 'mse' was deprecated in v1.0 and will be "
+                    "removed in version 1.2. Use `criterion='squared_error'` "
+                    "which is equivalent.",
+                    FutureWarning
+                )
+            elif self.criterion == "mae":
+                warnings.warn(
+                    "Criterion 'mae' was deprecated in v1.0 and will be "
+                    "removed in version 1.2. Use `criterion='absolute_error'` "
+                    "which is equivalent.",
+                    FutureWarning
+                )
+        else:
+            # Make a deepcopy in case the criterion has mutable attributes that
+            # might be shared and modified concurrently during parallel fitting
+            criterion = copy.deepcopy(criterion)
+
+        # set splitter, tree and tree builder
+        splitter = self._set_splitter(issparse(X), criterion, min_samples_leaf, 
+                            min_weight_leaf, random_state)
+        self._set_tree()
+        builder = self._set_builder(splitter, min_samples_split, min_samples_leaf, min_weight_leaf, 
+            max_depth, max_leaf_nodes, min_impurity_split)
+
+        builder.build(self.tree_, X, y, sample_weight)
+
+        if self.n_outputs_ == 1 and is_classifier(self):
+            self.n_classes_ = self.n_classes_[0]
+            self.classes_ = self.classes_[0]
+
+        self._prune_tree()
+
+        return self
+
+    def _set_splitter(self, issparse, criterion, min_samples_leaf, min_weight_leaf, random_state):
+        SPLITTERS = SPARSE_SPLITTERS if issparse else DENSE_SPLITTERS
+
+        splitter = self.splitter
+        if not isinstance(self.splitter, Splitter):
+            splitter = SPLITTERS[self.splitter](criterion,
+                                                self.max_features_,
+                                                min_samples_leaf,
+                                                min_weight_leaf,
+                                                random_state)
+        return splitter
+
+    def _set_tree(self):
+        if is_classifier(self):
+            self.tree_ = Tree(self.n_features_,
+                              self.n_classes_, self.n_outputs_)
+        else:
+            self.tree_ = Tree(self.n_features_,
+                              # TODO: tree should't need this in this case
+                              np.array([1] * self.n_outputs_, dtype=np.intp),
+                              self.n_outputs_)
+
+    def _set_builder(self, splitter, min_samples_split, min_samples_leaf, min_weight_leaf, 
+            max_depth, max_leaf_nodes, min_impurity_split):
+        # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
+        if max_leaf_nodes < 0:
+            builder = DepthFirstTreeBuilder(splitter, min_samples_split,
+                                            min_samples_leaf,
+                                            min_weight_leaf,
+                                            max_depth,
+                                            self.min_impurity_decrease,
+                                            min_impurity_split)
+        else:
+            builder = BestFirstTreeBuilder(splitter, min_samples_split,
+                                           min_samples_leaf,
+                                           min_weight_leaf,
+                                           max_depth,
+                                           max_leaf_nodes,
+                                           self.min_impurity_decrease,
+                                           min_impurity_split)
+        return builder
+
+    def _validate_X_predict(self, X, check_input):
+        """Validate the training data on predict (probabilities)."""
+        if check_input:
+            X = self._validate_data(X, dtype=DTYPE, accept_sparse="csr",
+                                    reset=False)
+            if issparse(X) and (X.indices.dtype != np.intc or
+                                X.indptr.dtype != np.intc):
+                raise ValueError("No support for np.int64 index based "
+                                 "sparse matrices")
+        else:
+            # The number of features is checked regardless of `check_input`
+            self._check_n_features(X, reset=False)
+        return X
+
+    def predict(self, X, check_input=True):
+        """Predict class or regression value for X.
+
+        For a classification model, the predicted class for each sample in X is
+        returned. For a regression model, the predicted value based on X is
+        returned.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The predicted classes, or the predict values.
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        proba = self.tree_.predict(X)
+        n_samples = X.shape[0]
+
+        # Classification
+        if is_classifier(self):
+            if self.n_outputs_ == 1:
+                return self.classes_.take(np.argmax(proba, axis=1), axis=0)
+
+            else:
+                class_type = self.classes_[0].dtype
+                predictions = np.zeros((n_samples, self.n_outputs_),
+                                       dtype=class_type)
+                for k in range(self.n_outputs_):
+                    predictions[:, k] = self.classes_[k].take(
+                        np.argmax(proba[:, k], axis=1),
+                        axis=0)
+
+                return predictions
+
+        # Regression
+        else:
+            if self.n_outputs_ == 1:
+                return proba[:, 0]
+
+            else:
+                return proba[:, :, 0]
+
+    def apply(self, X, check_input=True):
+        """Return the index of the leaf that each sample is predicted as.
+
+        .. versionadded:: 0.17
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        X_leaves : array-like of shape (n_samples,)
+            For each datapoint x in X, return the index of the leaf x
+            ends up in. Leaves are numbered within
+            ``[0; self.tree_.node_count)``, possibly with gaps in the
+            numbering.
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        return self.tree_.apply(X)
+
+    def decision_path(self, X, check_input=True):
+        """Return the decision path in the tree.
+
+        .. versionadded:: 0.18
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        indicator : sparse matrix of shape (n_samples, n_nodes)
+            Return a node indicator CSR matrix where non zero elements
+            indicates that the samples goes through the nodes.
+        """
+        X = self._validate_X_predict(X, check_input)
+        return self.tree_.decision_path(X)
+
+    def _prune_tree(self):
+        """Prune tree using Minimal Cost-Complexity Pruning."""
+        check_is_fitted(self)
+
+        if self.ccp_alpha < 0.0:
+            raise ValueError("ccp_alpha must be greater than or equal to 0")
+
+        if self.ccp_alpha == 0.0:
+            return
+
+        # build pruned tree
+        if is_classifier(self):
+            n_classes = np.atleast_1d(self.n_classes_)
+            pruned_tree = Tree(self.n_features_, n_classes, self.n_outputs_)
+        else:
+            pruned_tree = Tree(self.n_features_,
+                               # TODO: the tree shouldn't need this param
+                               np.array([1] * self.n_outputs_, dtype=np.intp),
+                               self.n_outputs_)
+        _build_pruned_tree_ccp(pruned_tree, self.tree_, self.ccp_alpha)
+
+        self.tree_ = pruned_tree
+
+    def cost_complexity_pruning_path(self, X, y, sample_weight=None):
+        """Compute the pruning path during Minimal Cost-Complexity Pruning.
+
+        See :ref:`minimal_cost_complexity_pruning` for details on the pruning
+        process.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The training input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csc_matrix``.
+
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The target values (class labels) as integers or strings.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Sample weights. If None, then samples are equally weighted. Splits
+            that would create child nodes with net zero or negative weight are
+            ignored while searching for a split in each node. Splits are also
+            ignored if they would result in any single class carrying a
+            negative weight in either child node.
+
+        Returns
+        -------
+        ccp_path : :class:`~sklearn.utils.Bunch`
+            Dictionary-like object, with the following attributes.
+
+            ccp_alphas : ndarray
+                Effective alphas of subtree during pruning.
+
+            impurities : ndarray
+                Sum of the impurities of the subtree leaves for the
+                corresponding alpha value in ``ccp_alphas``.
+        """
+        est = clone(self).set_params(ccp_alpha=0.0)
+        est.fit(X, y, sample_weight=sample_weight)
+        return Bunch(**ccp_pruning_path(est.tree_))
+
+    @property
+    def feature_importances_(self):
+        """Return the feature importances.
+
+        The importance of a feature is computed as the (normalized) total
+        reduction of the criterion brought by that feature.
+        It is also known as the Gini importance.
+
+        Warning: impurity-based feature importances can be misleading for
+        high cardinality features (many unique values). See
+        :func:`sklearn.inspection.permutation_importance` as an alternative.
+
+        Returns
+        -------
+        feature_importances_ : ndarray of shape (n_features,)
+            Normalized total reduction of criteria by feature
+            (Gini importance).
+        """
+        check_is_fitted(self)
+
+        return self.tree_.compute_feature_importances()
 
 
 class BaseObliqueDecisionTree(BaseDecisionTree):
@@ -130,247 +698,8 @@ class BaseObliqueDecisionTree(BaseDecisionTree):
         # SPORF params
         self.feature_combinations = feature_combinations
 
-
-    # refactor the definition of the tree into a private method
-    def fit(
-        self, X, y, sample_weight=None, check_input=True, X_idx_sorted="deprecated"
-    ):
-
-        random_state = check_random_state(self.random_state)
-
-        if self.ccp_alpha < 0.0:
-            raise ValueError("ccp_alpha must be greater than or equal to 0")
-
-        if check_input:
-            # Need to validate separately here.
-            # We can't pass multi_ouput=True because that would allow y to be
-            # csr.
-            check_X_params = dict(dtype=DTYPE, accept_sparse="csc")
-            check_y_params = dict(ensure_2d=False, dtype=None)
-            X, y = self._validate_data(
-                X, y, validate_separately=(check_X_params, check_y_params)
-            )
-            if issparse(X):
-                X.sort_indices()
-
-                if X.indices.dtype != np.intc or X.indptr.dtype != np.intc:
-                    raise ValueError(
-                        "No support for np.int64 index based " "sparse matrices"
-                    )
-
-            if self.criterion == "poisson":
-                if np.any(y < 0):
-                    raise ValueError(
-                        "Some value(s) of y are negative which is"
-                        " not allowed for Poisson regression."
-                    )
-                if np.sum(y) <= 0:
-                    raise ValueError(
-                        "Sum of y is not positive which is "
-                        "necessary for Poisson regression."
-                    )
-
-        # Determine output settings
-        n_samples, self.n_features_ = X.shape
-        self.n_features_in_ = self.n_features_
-        is_classification = is_classifier(self)
-
-        y = np.atleast_1d(y)
-        expanded_class_weight = None
-
-        if y.ndim == 1:
-            # reshape is necessary to preserve the data contiguity against vs
-            # [:, np.newaxis] that does not.
-            y = np.reshape(y, (-1, 1))
-
-        self.n_outputs_ = y.shape[1]
-
-        if is_classification:
-            check_classification_targets(y)
-            y = np.copy(y)
-
-            self.classes_ = []
-            self.n_classes_ = []
-
-            if self.class_weight is not None:
-                y_original = np.copy(y)
-
-            y_encoded = np.zeros(y.shape, dtype=int)
-            for k in range(self.n_outputs_):
-                classes_k, y_encoded[:, k] = np.unique(y[:, k], return_inverse=True)
-                self.classes_.append(classes_k)
-                self.n_classes_.append(classes_k.shape[0])
-            y = y_encoded
-
-            if self.class_weight is not None:
-                expanded_class_weight = compute_sample_weight(
-                    self.class_weight, y_original
-                )
-
-            self.n_classes_ = np.array(self.n_classes_, dtype=np.intp)
-
-        if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
-            y = np.ascontiguousarray(y, dtype=DOUBLE)
-
-        # Check parameters
-        max_depth = np.iinfo(np.int32).max if self.max_depth is None else self.max_depth
-        max_leaf_nodes = -1 if self.max_leaf_nodes is None else self.max_leaf_nodes
-
-        if isinstance(self.min_samples_leaf, numbers.Integral):
-            if not 1 <= self.min_samples_leaf:
-                raise ValueError(
-                    "min_samples_leaf must be at least 1 "
-                    "or in (0, 0.5], got %s" % self.min_samples_leaf
-                )
-            min_samples_leaf = self.min_samples_leaf
-        else:  # float
-            if not 0.0 < self.min_samples_leaf <= 0.5:
-                raise ValueError(
-                    "min_samples_leaf must be at least 1 "
-                    "or in (0, 0.5], got %s" % self.min_samples_leaf
-                )
-            min_samples_leaf = int(ceil(self.min_samples_leaf * n_samples))
-
-        if isinstance(self.min_samples_split, numbers.Integral):
-            if not 2 <= self.min_samples_split:
-                raise ValueError(
-                    "min_samples_split must be an integer "
-                    "greater than 1 or a float in (0.0, 1.0]; "
-                    "got the integer %s" % self.min_samples_split
-                )
-            min_samples_split = self.min_samples_split
-        else:  # float
-            if not 0.0 < self.min_samples_split <= 1.0:
-                raise ValueError(
-                    "min_samples_split must be an integer "
-                    "greater than 1 or a float in (0.0, 1.0]; "
-                    "got the float %s" % self.min_samples_split
-                )
-            min_samples_split = int(ceil(self.min_samples_split * n_samples))
-            min_samples_split = max(2, min_samples_split)
-
-        min_samples_split = max(min_samples_split, 2 * min_samples_leaf)
-
-        if isinstance(self.max_features, str):
-            if self.max_features == "auto":
-                if is_classification:
-                    max_features = max(1, int(np.sqrt(self.n_features_)))
-                else:
-                    max_features = self.n_features_
-            elif self.max_features == "sqrt":
-                max_features = max(1, int(np.sqrt(self.n_features_)))
-            elif self.max_features == "log2":
-                max_features = max(1, int(np.log2(self.n_features_)))
-            else:
-                raise ValueError(
-                    "Invalid value for max_features. "
-                    "Allowed string values are 'auto', "
-                    "'sqrt' or 'log2'."
-                )
-        elif self.max_features is None:
-            max_features = self.n_features_
-        elif isinstance(self.max_features, numbers.Integral):
-            max_features = self.max_features
-        else:  # float
-            if self.max_features > 0.0:
-                max_features = max(1, int(self.max_features * self.n_features_))
-            else:
-                max_features = 0
-
-        self.max_features_ = max_features
-
-        if len(y) != n_samples:
-            raise ValueError(
-                "Number of labels=%d does not match "
-                "number of samples=%d" % (len(y), n_samples)
-            )
-        if not 0 <= self.min_weight_fraction_leaf <= 0.5:
-            raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
-        if max_depth <= 0:
-            raise ValueError("max_depth must be greater than zero. ")
-        if not (0 < max_features <= self.n_features_):
-            raise ValueError("max_features must be in (0, n_features]")
-        if not isinstance(max_leaf_nodes, numbers.Integral):
-            raise ValueError(
-                "max_leaf_nodes must be integral number but was " "%r" % max_leaf_nodes
-            )
-        if -1 < max_leaf_nodes < 2:
-            raise ValueError(
-                ("max_leaf_nodes {0} must be either None " "or larger than 1").format(
-                    max_leaf_nodes
-                )
-            )
-
-        if sample_weight is not None:
-            sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
-
-        if expanded_class_weight is not None:
-            if sample_weight is not None:
-                sample_weight = sample_weight * expanded_class_weight
-            else:
-                sample_weight = expanded_class_weight
-
-        # Set min_weight_leaf from min_weight_fraction_leaf
-        if sample_weight is None:
-            min_weight_leaf = self.min_weight_fraction_leaf * n_samples
-        else:
-            min_weight_leaf = self.min_weight_fraction_leaf * np.sum(sample_weight)
-
-        min_impurity_split = self.min_impurity_split
-        if min_impurity_split is not None:
-            warnings.warn(
-                "The min_impurity_split parameter is deprecated. Its default "
-                "value has changed from 1e-7 to 0 in version 0.23, and it "
-                "will be removed in 1.0 (renaming of 0.25). Use the "
-                "min_impurity_decrease parameter instead.",
-                FutureWarning,
-            )
-
-            if min_impurity_split < 0.0:
-                raise ValueError(
-                    "min_impurity_split must be greater than " "or equal to 0"
-                )
-        else:
-            min_impurity_split = 0
-
-        if self.min_impurity_decrease < 0.0:
-            raise ValueError(
-                "min_impurity_decrease must be greater than " "or equal to 0"
-            )
-
-        # TODO: Remove in 1.1
-        if X_idx_sorted != "deprecated":
-            warnings.warn(
-                "The parameter 'X_idx_sorted' is deprecated and has no "
-                "effect. It will be removed in 1.1 (renaming of 0.26). You "
-                "can suppress this warning by not passing any value to the "
-                "'X_idx_sorted' parameter.",
-                FutureWarning,
-            )
-
-        # Build tree
-        criterion = self.criterion
-        if not isinstance(criterion, Criterion):
-            if is_classification:
-                criterion = CRITERIA_CLF[self.criterion](
-                    self.n_outputs_, self.n_classes_
-                )
-            else:
-                criterion = CRITERIA_REG[self.criterion](self.n_outputs_, n_samples)
-            # TODO: Remove in v1.2
-            if self.criterion == "mse":
-                warnings.warn(
-                    "Criterion 'mse' was deprecated in v1.0 and will be "
-                    "removed in version 1.2. Use `criterion='squared_error'` "
-                    "which is equivalent.",
-                    FutureWarning,
-                )
-        else:
-            # Make a deepcopy in case the criterion has mutable attributes that
-            # might be shared and modified concurrently during parallel fitting
-            criterion = copy.deepcopy(criterion)
-
-        SPLITTERS = SPARSE_SPLITTERS if issparse(X) else DENSE_SPLITTERS
+    def _set_splitter(self, issparse, criterion, min_samples_leaf, min_weight_leaf, random_state):
+        SPLITTERS = OBLIQUE_SPARSE_SPLITTERS if issparse else OBLIQUE_DENSE_SPLITTERS
 
         splitter = self.splitter
         if not isinstance(self.splitter, BaseObliqueSplitter):
@@ -382,7 +711,9 @@ class BaseObliqueDecisionTree(BaseDecisionTree):
                 self.feature_combinations,
                 random_state,
             )
-
+        return splitter
+    
+    def _set_tree(self):
         if is_classifier(self):
             self.tree_ = ObliqueTree(self.n_features_, self.n_classes_, self.n_outputs_)
         else:
@@ -393,9 +724,11 @@ class BaseObliqueDecisionTree(BaseDecisionTree):
                 self.n_outputs_,
             )
 
+    def _set_builder(self, splitter, min_samples_split, min_samples_leaf, min_weight_leaf, 
+            max_depth, max_leaf_nodes, min_impurity_split):
         # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
         if max_leaf_nodes < 0:
-            builder = DepthFirstTreeBuilder(
+            builder = ObliqueDepthFirstTreeBuilder(
                 splitter,
                 min_samples_split,
                 min_samples_leaf,
@@ -404,24 +737,9 @@ class BaseObliqueDecisionTree(BaseDecisionTree):
                 self.min_impurity_decrease,
                 min_impurity_split,
             )
-        # else:
-        # builder = BestFirstTreeBuilder(splitter, min_samples_split,
-        #                                min_samples_leaf,
-        #                                min_weight_leaf,
-        #                                max_depth,
-        #                                max_leaf_nodes,
-        #                                self.min_impurity_decrease,
-        #                                min_impurity_split)
-
-        builder.build(self.tree_, X, y, sample_weight)
-
-        if self.n_outputs_ == 1 and is_classifier(self):
-            self.n_classes_ = self.n_classes_[0]
-            self.classes_ = self.classes_[0]
-
-        self._prune_tree()
-
-        return self
+        else:
+            raise NotImplementedError('Havent implemented Best First tree builder')
+        return builder
 
 
 # =============================================================================
