@@ -11,6 +11,7 @@ import pytest
 from oblique_forests.sporf import ObliqueForestClassifier, PythonObliqueForestClassifier
 
 
+@pytest.mark.skip(reason='Python version can skip')
 def test_sparse_parity_py():
     clf = PythonObliqueForestClassifier(
         random_state=1,

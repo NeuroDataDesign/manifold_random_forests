@@ -88,7 +88,7 @@ cdef class ObliqueTree:
 # Tree builder
 # =============================================================================
 
-cdef class TreeBuilder:
+cdef class ObliqueTreeBuilder:
     # The TreeBuilder recursively builds a Tree object from training samples,
     # using a Splitter object for splitting internal nodes and assigning
     # values to leaves.

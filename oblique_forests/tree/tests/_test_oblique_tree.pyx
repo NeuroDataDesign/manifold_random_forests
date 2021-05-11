@@ -24,8 +24,8 @@ from oblique_forests.tree._criterion import Gini, MSE
 from oblique_forests.tree._criterion cimport Criterion
 from oblique_forests.tree._oblique_splitter import ObliqueSplitter
 from oblique_forests.tree._oblique_splitter cimport BaseObliqueSplitter, ObliqueSplitRecord
-from oblique_forests.tree._oblique_tree import DepthFirstTreeBuilder
-from oblique_forests.tree._oblique_tree cimport ObliqueTree, TreeBuilder
+from oblique_forests.tree._oblique_tree import ObliqueDepthFirstTreeBuilder
+from oblique_forests.tree._oblique_tree cimport ObliqueTree, ObliqueTreeBuilder
 
 TREE_UNDEFINED = -2
 cdef SIZE_t _TREE_UNDEFINED = TREE_UNDEFINED
@@ -188,7 +188,7 @@ def test_build_tree():
     cdef BaseObliqueSplitter splitter = ObliqueSplitter(criterion, max_features, 
                                                         min_samples_leaf, min_weight_leaf, 
                                                         feature_combinations, random_state)
-    cdef TreeBuilder builder = DepthFirstTreeBuilder(splitter, min_samples_split,
+    cdef ObliqueTreeBuilder builder = ObliqueDepthFirstTreeBuilder(splitter, min_samples_split,
                                                      min_samples_leaf,
                                                      min_weight_leaf,
                                                      max_depth,
@@ -217,7 +217,7 @@ def test_diabetes():
     cdef BaseObliqueSplitter splitter = ObliqueSplitter(criterion, max_features, 
                                                         min_samples_leaf, min_weight_leaf, 
                                                         feature_combinations, random_state)
-    cdef TreeBuilder builder = DepthFirstTreeBuilder(splitter, min_samples_split,
+    cdef ObliqueTreeBuilder builder = ObliqueDepthFirstTreeBuilder(splitter, min_samples_split,
                                                      min_samples_leaf,
                                                      min_weight_leaf,
                                                      max_depth,

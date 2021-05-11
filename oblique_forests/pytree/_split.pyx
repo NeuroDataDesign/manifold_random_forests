@@ -19,12 +19,12 @@ from cython.parallel import prange
 # TODO: rand not thread safe, replace with sklearn's utils when merging code
 #from libc.stdlib cimport rand, srand, RAND_MAX 
 
-from ._utils cimport rand_int, rand_uniform
+from ..tree._utils cimport rand_int, rand_uniform
 
 # DTYPE_t = type of X
 # DOUBLE_t = type of y
 # SIZE_t = indices type
-from ._utils cimport DTYPE_t, DOUBLE_t, SIZE_t, INT32_t, UINT32_t
+from ..tree._utils cimport DTYPE_t, DOUBLE_t, SIZE_t, INT32_t, UINT32_t
 
 # 0 < t < len(y)
 

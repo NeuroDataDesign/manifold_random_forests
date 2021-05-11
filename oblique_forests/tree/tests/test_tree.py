@@ -7,10 +7,10 @@ from numpy.testing import (
 )
 
 import pytest
-from oblique_forests.tree import DecisionTreeClassifier as OTC
+from oblique_forests.tree import ObliqueDecisionTreeClassifier as OTC
 from oblique_forests.sporf import ObliqueForestClassifier
 from oblique_forests.utils import run_tests_if_main
-from oblique_forests.tree import DecisionTreeRegressor as OTR
+from oblique_forests.tree import ObliqueDecisionTreeRegressor as OTR
 
 from sklearn import datasets
 from sklearn.metrics import accuracy_score, mean_squared_error

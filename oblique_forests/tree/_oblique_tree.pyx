@@ -32,6 +32,8 @@ from scipy.sparse import issparse
 from scipy.sparse import csc_matrix
 from scipy.sparse import csr_matrix
 
+# from ._tree cimport TreeBuilder
+
 from ._utils cimport Stack
 from ._utils cimport StackRecord
 from ._utils cimport PriorityHeap
@@ -89,7 +91,7 @@ NODE_DTYPE = np.dtype({
 # TreeBuilder
 # =============================================================================
 
-cdef class TreeBuilder:
+cdef class ObliqueTreeBuilder:
     """Interface for different tree building strategies."""
 
     cpdef build(self, ObliqueTree tree, object X, np.ndarray y,
@@ -129,7 +131,7 @@ cdef class TreeBuilder:
 
 # Depth first builder ---------------------------------------------------------
 
-cdef class DepthFirstTreeBuilder(TreeBuilder):
+cdef class ObliqueDepthFirstTreeBuilder(ObliqueTreeBuilder):
     """Build a decision tree in depth-first fashion."""
 
     def __cinit__(self, BaseObliqueSplitter splitter, SIZE_t min_samples_split,
@@ -149,7 +151,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                 np.ndarray X_idx_sorted=None):
         """Build a decision tree from the training set (X, y)."""
         # with gil:
-        print('Inside build...')
+        # print('Inside build...')
 
         # check input
         X, y, sample_weight = self._check_input(X, y, sample_weight)
@@ -167,7 +169,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
             init_capacity = 2047
 
         tree._resize(init_capacity)
-        print('finished resizing...')
+        # print('finished resizing...')
 
         # Parameters
         cdef BaseObliqueSplitter splitter = self.splitter
@@ -179,9 +181,9 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef double min_impurity_split = self.min_impurity_split
 
         # Recursive partition (without actual recursion)
-        print('splitter: ', splitter)
+        # print('splitter: ', splitter)
         splitter.init(X, y, sample_weight_ptr, X_idx_sorted)
-        print('Splitter initialized...')
+        # print('Splitter initialized...')
 
         cdef SIZE_t start
         cdef SIZE_t end
@@ -205,7 +207,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef StackRecord stack_record
 
         # with gil:
-        print('Got to nogil part.')
+        # print('Got to nogil part.')
 
         with nogil:
             # push root node onto stack
