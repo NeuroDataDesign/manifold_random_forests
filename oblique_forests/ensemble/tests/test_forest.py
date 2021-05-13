@@ -40,11 +40,11 @@ from sklearn.exceptions import NotFittedError
 from sklearn import datasets
 from sklearn.decomposition import TruncatedSVD
 from sklearn.datasets import make_classification
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.ensemble import ExtraTreesRegressor
+# from sklearn.ensemble import ExtraTreesClassifier
+# from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import RandomTreesEmbedding
+# from sklearn.ensemble import RandomTreesEmbedding
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import LinearSVC
@@ -85,17 +85,17 @@ hastie_X = hastie_X.astype(np.float32)
 DEFAULT_JOBLIB_BACKEND = joblib.parallel.get_active_backend()[0].__class__
 
 FOREST_CLASSIFIERS = {
-    "ExtraTreesClassifier": ExtraTreesClassifier,
+    # "ExtraTreesClassifier": ExtraTreesClassifier,
     "RandomForestClassifier": RandomForestClassifier,
 }
 
 FOREST_REGRESSORS = {
-    "ExtraTreesRegressor": ExtraTreesRegressor,
+    # "ExtraTreesRegressor": ExtraTreesRegressor,
     "RandomForestRegressor": RandomForestRegressor,
 }
 
 FOREST_TRANSFORMERS = {
-    "RandomTreesEmbedding": RandomTreesEmbedding,
+    # "RandomTreesEmbedding": RandomTreesEmbedding,
 }
 
 FOREST_ESTIMATORS: Dict[str, Any] = dict()
@@ -275,97 +275,97 @@ def test_importances(dtype, name, criterion):
     check_importances(name, criterion, dtype, tolerance)
 
 
-def test_importances_asymptotic():
-    # Check whether variable importances of totally randomized trees
-    # converge towards their theoretical values (See Louppe et al,
-    # Understanding variable importances in forests of randomized trees, 2013).
+# def test_importances_asymptotic():
+#     # Check whether variable importances of totally randomized trees
+#     # converge towards their theoretical values (See Louppe et al,
+#     # Understanding variable importances in forests of randomized trees, 2013).
 
-    def binomial(k, n):
-        return 0 if k < 0 or k > n else comb(int(n), int(k), exact=True)
+#     def binomial(k, n):
+#         return 0 if k < 0 or k > n else comb(int(n), int(k), exact=True)
 
-    def entropy(samples):
-        n_samples = len(samples)
-        entropy = 0.
+#     def entropy(samples):
+#         n_samples = len(samples)
+#         entropy = 0.
 
-        for count in np.bincount(samples):
-            p = 1. * count / n_samples
-            if p > 0:
-                entropy -= p * np.log2(p)
+#         for count in np.bincount(samples):
+#             p = 1. * count / n_samples
+#             if p > 0:
+#                 entropy -= p * np.log2(p)
 
-        return entropy
+#         return entropy
 
-    def mdi_importance(X_m, X, y):
-        n_samples, n_features = X.shape
+#     def mdi_importance(X_m, X, y):
+#         n_samples, n_features = X.shape
 
-        features = list(range(n_features))
-        features.pop(X_m)
-        values = [np.unique(X[:, i]) for i in range(n_features)]
+#         features = list(range(n_features))
+#         features.pop(X_m)
+#         values = [np.unique(X[:, i]) for i in range(n_features)]
 
-        imp = 0.
+#         imp = 0.
 
-        for k in range(n_features):
-            # Weight of each B of size k
-            coef = 1. / (binomial(k, n_features) * (n_features - k))
+#         for k in range(n_features):
+#             # Weight of each B of size k
+#             coef = 1. / (binomial(k, n_features) * (n_features - k))
 
-            # For all B of size k
-            for B in combinations(features, k):
-                # For all values B=b
-                for b in product(*[values[B[j]] for j in range(k)]):
-                    mask_b = np.ones(n_samples, dtype=bool)
+#             # For all B of size k
+#             for B in combinations(features, k):
+#                 # For all values B=b
+#                 for b in product(*[values[B[j]] for j in range(k)]):
+#                     mask_b = np.ones(n_samples, dtype=bool)
 
-                    for j in range(k):
-                        mask_b &= X[:, B[j]] == b[j]
+#                     for j in range(k):
+#                         mask_b &= X[:, B[j]] == b[j]
 
-                    X_, y_ = X[mask_b, :], y[mask_b]
-                    n_samples_b = len(X_)
+#                     X_, y_ = X[mask_b, :], y[mask_b]
+#                     n_samples_b = len(X_)
 
-                    if n_samples_b > 0:
-                        children = []
+#                     if n_samples_b > 0:
+#                         children = []
 
-                        for xi in values[X_m]:
-                            mask_xi = X_[:, X_m] == xi
-                            children.append(y_[mask_xi])
+#                         for xi in values[X_m]:
+#                             mask_xi = X_[:, X_m] == xi
+#                             children.append(y_[mask_xi])
 
-                        imp += (coef
-                                * (1. * n_samples_b / n_samples)  # P(B=b)
-                                * (entropy(y_) -
-                                   sum([entropy(c) * len(c) / n_samples_b
-                                        for c in children])))
+#                         imp += (coef
+#                                 * (1. * n_samples_b / n_samples)  # P(B=b)
+#                                 * (entropy(y_) -
+#                                    sum([entropy(c) * len(c) / n_samples_b
+#                                         for c in children])))
 
-        return imp
+#         return imp
 
-    data = np.array([[0, 0, 1, 0, 0, 1, 0, 1],
-                     [1, 0, 1, 1, 1, 0, 1, 2],
-                     [1, 0, 1, 1, 0, 1, 1, 3],
-                     [0, 1, 1, 1, 0, 1, 0, 4],
-                     [1, 1, 0, 1, 0, 1, 1, 5],
-                     [1, 1, 0, 1, 1, 1, 1, 6],
-                     [1, 0, 1, 0, 0, 1, 0, 7],
-                     [1, 1, 1, 1, 1, 1, 1, 8],
-                     [1, 1, 1, 1, 0, 1, 1, 9],
-                     [1, 1, 1, 0, 1, 1, 1, 0]])
+#     data = np.array([[0, 0, 1, 0, 0, 1, 0, 1],
+#                      [1, 0, 1, 1, 1, 0, 1, 2],
+#                      [1, 0, 1, 1, 0, 1, 1, 3],
+#                      [0, 1, 1, 1, 0, 1, 0, 4],
+#                      [1, 1, 0, 1, 0, 1, 1, 5],
+#                      [1, 1, 0, 1, 1, 1, 1, 6],
+#                      [1, 0, 1, 0, 0, 1, 0, 7],
+#                      [1, 1, 1, 1, 1, 1, 1, 8],
+#                      [1, 1, 1, 1, 0, 1, 1, 9],
+#                      [1, 1, 1, 0, 1, 1, 1, 0]])
 
-    X, y = np.array(data[:, :7], dtype=bool), data[:, 7]
-    n_features = X.shape[1]
+#     X, y = np.array(data[:, :7], dtype=bool), data[:, 7]
+#     n_features = X.shape[1]
 
-    # Compute true importances
-    true_importances = np.zeros(n_features)
+#     # Compute true importances
+#     true_importances = np.zeros(n_features)
 
-    for i in range(n_features):
-        true_importances[i] = mdi_importance(i, X, y)
+#     for i in range(n_features):
+#         true_importances[i] = mdi_importance(i, X, y)
 
-    # Estimate importances with totally randomized trees
-    clf = ExtraTreesClassifier(n_estimators=500,
-                               max_features=1,
-                               criterion="entropy",
-                               random_state=0).fit(X, y)
+#     # Estimate importances with totally randomized trees
+#     clf = ExtraTreesClassifier(n_estimators=500,
+#                                max_features=1,
+#                                criterion="entropy",
+#                                random_state=0).fit(X, y)
 
-    importances = sum(tree.tree_.compute_feature_importances(normalize=False)
-                      for tree in clf.estimators_) / clf.n_estimators
+#     importances = sum(tree.tree_.compute_feature_importances(normalize=False)
+#                       for tree in clf.estimators_) / clf.n_estimators
 
-    # Check correctness
-    assert_almost_equal(entropy(y), sum(importances))
-    assert np.abs(true_importances - importances).mean() < 0.01
+#     # Check correctness
+#     assert_almost_equal(entropy(y), sum(importances))
+#     assert np.abs(true_importances - importances).mean() < 0.01
 
 
 @pytest.mark.parametrize('name', FOREST_ESTIMATORS)
@@ -521,12 +521,12 @@ def test_forest_oob_error(ForestEstimator, X, y, params, err_msg):
         estimator.fit(X, y)
 
 
-@pytest.mark.parametrize("oob_score", [True, False])
-def test_random_trees_embedding_raise_error_oob(oob_score):
-    with pytest.raises(TypeError, match="got an unexpected keyword argument"):
-        RandomTreesEmbedding(oob_score=oob_score)
-    with pytest.raises(NotImplementedError, match="OOB score not supported"):
-        RandomTreesEmbedding()._set_oob_score_and_attributes(X, y)
+# @pytest.mark.parametrize("oob_score", [True, False])
+# def test_random_trees_embedding_raise_error_oob(oob_score):
+#     with pytest.raises(TypeError, match="got an unexpected keyword argument"):
+#         RandomTreesEmbedding(oob_score=oob_score)
+#     with pytest.raises(NotImplementedError, match="OOB score not supported"):
+#         RandomTreesEmbedding()._set_oob_score_and_attributes(X, y)
 
 
 def check_gridsearch(name):
@@ -680,68 +680,68 @@ def test_classes_shape(name):
     check_classes_shape(name)
 
 
-def test_random_trees_dense_type():
-    # Test that the `sparse_output` parameter of RandomTreesEmbedding
-    # works by returning a dense array.
+# def test_random_trees_dense_type():
+#     # Test that the `sparse_output` parameter of RandomTreesEmbedding
+#     # works by returning a dense array.
 
-    # Create the RTE with sparse=False
-    hasher = RandomTreesEmbedding(n_estimators=10, sparse_output=False)
-    X, y = datasets.make_circles(factor=0.5)
-    X_transformed = hasher.fit_transform(X)
+#     # Create the RTE with sparse=False
+#     hasher = RandomTreesEmbedding(n_estimators=10, sparse_output=False)
+#     X, y = datasets.make_circles(factor=0.5)
+#     X_transformed = hasher.fit_transform(X)
 
-    # Assert that type is ndarray, not scipy.sparse.csr.csr_matrix
-    assert type(X_transformed) == np.ndarray
-
-
-def test_random_trees_dense_equal():
-    # Test that the `sparse_output` parameter of RandomTreesEmbedding
-    # works by returning the same array for both argument values.
-
-    # Create the RTEs
-    hasher_dense = RandomTreesEmbedding(n_estimators=10, sparse_output=False,
-                                        random_state=0)
-    hasher_sparse = RandomTreesEmbedding(n_estimators=10, sparse_output=True,
-                                         random_state=0)
-    X, y = datasets.make_circles(factor=0.5)
-    X_transformed_dense = hasher_dense.fit_transform(X)
-    X_transformed_sparse = hasher_sparse.fit_transform(X)
-
-    # Assert that dense and sparse hashers have same array.
-    assert_array_equal(X_transformed_sparse.toarray(), X_transformed_dense)
+#     # Assert that type is ndarray, not scipy.sparse.csr.csr_matrix
+#     assert type(X_transformed) == np.ndarray
 
 
-# Ignore warnings from switching to more power iterations in randomized_svd
-@ignore_warnings
-def test_random_hasher():
-    # test random forest hashing on circles dataset
-    # make sure that it is linearly separable.
-    # even after projected to two SVD dimensions
-    # Note: Not all random_states produce perfect results.
-    hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
-    X, y = datasets.make_circles(factor=0.5)
-    X_transformed = hasher.fit_transform(X)
+# def test_random_trees_dense_equal():
+#     # Test that the `sparse_output` parameter of RandomTreesEmbedding
+#     # works by returning the same array for both argument values.
 
-    # test fit and transform:
-    hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
-    assert_array_equal(hasher.fit(X).transform(X).toarray(),
-                       X_transformed.toarray())
+#     # Create the RTEs
+#     hasher_dense = RandomTreesEmbedding(n_estimators=10, sparse_output=False,
+#                                         random_state=0)
+#     hasher_sparse = RandomTreesEmbedding(n_estimators=10, sparse_output=True,
+#                                          random_state=0)
+#     X, y = datasets.make_circles(factor=0.5)
+#     X_transformed_dense = hasher_dense.fit_transform(X)
+#     X_transformed_sparse = hasher_sparse.fit_transform(X)
 
-    # one leaf active per data point per forest
-    assert X_transformed.shape[0] == X.shape[0]
-    assert_array_equal(X_transformed.sum(axis=1), hasher.n_estimators)
-    svd = TruncatedSVD(n_components=2)
-    X_reduced = svd.fit_transform(X_transformed)
-    linear_clf = LinearSVC()
-    linear_clf.fit(X_reduced, y)
-    assert linear_clf.score(X_reduced, y) == 1.
+#     # Assert that dense and sparse hashers have same array.
+#     assert_array_equal(X_transformed_sparse.toarray(), X_transformed_dense)
 
 
-def test_random_hasher_sparse_data():
-    X, y = datasets.make_multilabel_classification(random_state=0)
-    hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
-    X_transformed = hasher.fit_transform(X)
-    X_transformed_sparse = hasher.fit_transform(csc_matrix(X))
-    assert_array_equal(X_transformed_sparse.toarray(), X_transformed.toarray())
+# # Ignore warnings from switching to more power iterations in randomized_svd
+# @ignore_warnings
+# def test_random_hasher():
+#     # test random forest hashing on circles dataset
+#     # make sure that it is linearly separable.
+#     # even after projected to two SVD dimensions
+#     # Note: Not all random_states produce perfect results.
+#     hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
+#     X, y = datasets.make_circles(factor=0.5)
+#     X_transformed = hasher.fit_transform(X)
+
+#     # test fit and transform:
+#     hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
+#     assert_array_equal(hasher.fit(X).transform(X).toarray(),
+#                        X_transformed.toarray())
+
+#     # one leaf active per data point per forest
+#     assert X_transformed.shape[0] == X.shape[0]
+#     assert_array_equal(X_transformed.sum(axis=1), hasher.n_estimators)
+#     svd = TruncatedSVD(n_components=2)
+#     X_reduced = svd.fit_transform(X_transformed)
+#     linear_clf = LinearSVC()
+#     linear_clf.fit(X_reduced, y)
+#     assert linear_clf.score(X_reduced, y) == 1.
+
+
+# def test_random_hasher_sparse_data():
+#     X, y = datasets.make_multilabel_classification(random_state=0)
+#     hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
+#     X_transformed = hasher.fit_transform(X)
+#     X_transformed_sparse = hasher.fit_transform(csc_matrix(X))
+#     assert_array_equal(X_transformed_sparse.toarray(), X_transformed.toarray())
 
 
 def test_parallel_train():
@@ -762,57 +762,57 @@ def test_parallel_train():
         assert_array_almost_equal(proba1, proba2)
 
 
-def test_distribution():
-    rng = check_random_state(12321)
+# def test_distribution():
+#     rng = check_random_state(12321)
 
-    # Single variable with 4 values
-    X = rng.randint(0, 4, size=(1000, 1))
-    y = rng.rand(1000)
-    n_trees = 500
+#     # Single variable with 4 values
+#     X = rng.randint(0, 4, size=(1000, 1))
+#     y = rng.rand(1000)
+#     n_trees = 500
 
-    reg = ExtraTreesRegressor(n_estimators=n_trees, random_state=42).fit(X, y)
+#     reg = ExtraTreesRegressor(n_estimators=n_trees, random_state=42).fit(X, y)
 
-    uniques = defaultdict(int)
-    for tree in reg.estimators_:
-        tree = "".join(("%d,%d/" % (f, int(t)) if f >= 0 else "-")
-                       for f, t in zip(tree.tree_.feature,
-                                       tree.tree_.threshold))
+#     uniques = defaultdict(int)
+#     for tree in reg.estimators_:
+#         tree = "".join(("%d,%d/" % (f, int(t)) if f >= 0 else "-")
+#                        for f, t in zip(tree.tree_.feature,
+#                                        tree.tree_.threshold))
 
-        uniques[tree] += 1
+#         uniques[tree] += 1
 
-    uniques = sorted([(1. * count / n_trees, tree)
-                      for tree, count in uniques.items()])
+#     uniques = sorted([(1. * count / n_trees, tree)
+#                       for tree, count in uniques.items()])
 
-    # On a single variable problem where X_0 has 4 equiprobable values, there
-    # are 5 ways to build a random tree. The more compact (0,1/0,0/--0,2/--) of
-    # them has probability 1/3 while the 4 others have probability 1/6.
+#     # On a single variable problem where X_0 has 4 equiprobable values, there
+#     # are 5 ways to build a random tree. The more compact (0,1/0,0/--0,2/--) of
+#     # them has probability 1/3 while the 4 others have probability 1/6.
 
-    assert len(uniques) == 5
-    assert 0.20 > uniques[0][0]  # Rough approximation of 1/6.
-    assert 0.20 > uniques[1][0]
-    assert 0.20 > uniques[2][0]
-    assert 0.20 > uniques[3][0]
-    assert uniques[4][0] > 0.3
-    assert uniques[4][1] == "0,1/0,0/--0,2/--"
+#     assert len(uniques) == 5
+#     assert 0.20 > uniques[0][0]  # Rough approximation of 1/6.
+#     assert 0.20 > uniques[1][0]
+#     assert 0.20 > uniques[2][0]
+#     assert 0.20 > uniques[3][0]
+#     assert uniques[4][0] > 0.3
+#     assert uniques[4][1] == "0,1/0,0/--0,2/--"
 
-    # Two variables, one with 2 values, one with 3 values
-    X = np.empty((1000, 2))
-    X[:, 0] = np.random.randint(0, 2, 1000)
-    X[:, 1] = np.random.randint(0, 3, 1000)
-    y = rng.rand(1000)
+#     # Two variables, one with 2 values, one with 3 values
+#     X = np.empty((1000, 2))
+#     X[:, 0] = np.random.randint(0, 2, 1000)
+#     X[:, 1] = np.random.randint(0, 3, 1000)
+#     y = rng.rand(1000)
 
-    reg = ExtraTreesRegressor(max_features=1, random_state=1).fit(X, y)
+#     reg = ExtraTreesRegressor(max_features=1, random_state=1).fit(X, y)
 
-    uniques = defaultdict(int)
-    for tree in reg.estimators_:
-        tree = "".join(("%d,%d/" % (f, int(t)) if f >= 0 else "-")
-                       for f, t in zip(tree.tree_.feature,
-                                       tree.tree_.threshold))
+#     uniques = defaultdict(int)
+#     for tree in reg.estimators_:
+#         tree = "".join(("%d,%d/" % (f, int(t)) if f >= 0 else "-")
+#                        for f, t in zip(tree.tree_.feature,
+#                                        tree.tree_.threshold))
 
-        uniques[tree] += 1
+#         uniques[tree] += 1
 
-    uniques = [(count, tree) for tree, count in uniques.items()]
-    assert len(uniques) == 8
+#     uniques = [(count, tree) for tree, count in uniques.items()]
+#     assert len(uniques) == 8
 
 
 def check_max_leaf_nodes_max_depth(name):
@@ -1336,25 +1336,26 @@ def test_decision_path(name):
     check_decision_path(name)
 
 
-def test_min_impurity_split():
-    # Test if min_impurity_split of base estimators is set
-    # Regression test for #8006
-    X, y = datasets.make_hastie_10_2(n_samples=100, random_state=1)
-    all_estimators = [RandomForestClassifier, RandomForestRegressor,
-                      ExtraTreesClassifier, ExtraTreesRegressor]
+# def test_min_impurity_split():
+#     # Test if min_impurity_split of base estimators is set
+#     # Regression test for #8006
+#     X, y = datasets.make_hastie_10_2(n_samples=100, random_state=1)
+#     all_estimators = [RandomForestClassifier, RandomForestRegressor,
+#                       ExtraTreesClassifier, ExtraTreesRegressor]
 
-    for Estimator in all_estimators:
-        est = Estimator(min_impurity_split=0.1)
-        with pytest.warns(FutureWarning, match="min_impurity_decrease"):
-            est = est.fit(X, y)
-        for tree in est.estimators_:
-            assert tree.min_impurity_split == 0.1
+#     for Estimator in all_estimators:
+#         est = Estimator(min_impurity_split=0.1)
+#         with pytest.warns(FutureWarning, match="min_impurity_decrease"):
+#             est = est.fit(X, y)
+#         for tree in est.estimators_:
+#             assert tree.min_impurity_split == 0.1
 
 
 def test_min_impurity_decrease():
     X, y = datasets.make_hastie_10_2(n_samples=100, random_state=1)
     all_estimators = [RandomForestClassifier, RandomForestRegressor,
-                      ExtraTreesClassifier, ExtraTreesRegressor]
+                    #   ExtraTreesClassifier, ExtraTreesRegressor
+                     ]
 
     for Estimator in all_estimators:
         est = Estimator(min_impurity_decrease=0.1)
