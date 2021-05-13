@@ -451,7 +451,8 @@ cdef class ObliqueTree:
         d["values"] = self._get_value_ndarray()
 
         # TODO: added but not sure if it works
-        # d['proj_vecs'] = np.asarray(self.proj_vecs)
+        # cdef float[::1] proj_vecs_arr = <float [:self.proj_vecs.size()]> self.proj_vecs.data()
+        # d['proj_vecs'] = np.asarray(<DTYPE_t[:,:]> proj_vecs_arr)
         return d
 
     def __setstate__(self, d):
@@ -485,6 +486,7 @@ cdef class ObliqueTree:
                        self.capacity * self.value_stride * sizeof(double))
 
         # TODO: pickling for proj_vecs
+        proj_vecs = d['proj_vecs']
 
     cdef int _resize(self, SIZE_t capacity) nogil except -1:
         """Resize all inner arrays to `capacity`, if `capacity` == -1, then

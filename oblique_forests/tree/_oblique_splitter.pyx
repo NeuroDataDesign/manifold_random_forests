@@ -413,7 +413,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             # Compute linear combination of features
             for i in range(start, end):
                 Xf[i] = 0
-                for j in range(n_features):
+                for j in range(0, n_features):
                     Xf[i] += self.X[samples[i], j] * proj_vec[j]
 
             # Sort the samples

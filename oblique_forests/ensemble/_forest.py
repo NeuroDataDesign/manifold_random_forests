@@ -54,13 +54,14 @@ from sklearn.base import is_classifier
 from sklearn.base import ClassifierMixin, RegressorMixin, MultiOutputMixin
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.preprocessing import OneHotEncoder
-from ..tree import (DecisionTreeClassifier, DecisionTreeRegressor,
-                    # ExtraTreeClassifier, ExtraTreeRegressor
+from sklearn.tree import (DecisionTreeClassifier, DecisionTreeRegressor,
+                    # ExtraTreeClassifier, ExtraTreesRegressor
                     )
+from sklearn.ensemble._forest import ExtraTreesRegressor, ExtraTreesClassifier
 from ..tree._tree import DTYPE, DOUBLE
-from ..utils import check_random_state, compute_sample_weight, deprecated
+from sklearn.utils import check_random_state, compute_sample_weight, deprecated
 from sklearn.exceptions import DataConversionWarning
-from ._base import BaseEnsemble, _partition_estimators
+from sklearn.ensemble._base import BaseEnsemble, _partition_estimators
 from sklearn.utils.fixes import delayed
 from sklearn.utils.fixes import _joblib_parallel_args
 from sklearn.utils.multiclass import check_classification_targets, type_of_target
