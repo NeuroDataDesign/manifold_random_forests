@@ -6,23 +6,18 @@
 #          Jacob Schreiber <jmschreiber91@gmail.com>
 #
 # License: BSD 3 clause
-
+# COPIED FROM SKLEARN
 # See _criterion.pyx for implementation details.
 
 import numpy as np
 cimport numpy as np
-
-# from sklearn.tree._tree cimport DTYPE_t          # Type of X
-# from sklearn.tree._tree cimport DOUBLE_t         # Type of y, sample_weight
-# from sklearn.tree._tree cimport SIZE_t           # Type for indices and counters
-# from sklearn.tree._tree cimport INT32_t          # Signed 32 bit integer
-# from sklearn.tree._tree cimport UINT32_t         # Unsigned 32 bit integer
 
 from ._oblique_tree cimport DTYPE_t          # Type of X
 from ._oblique_tree cimport DOUBLE_t         # Type of y, sample_weight
 from ._oblique_tree cimport SIZE_t           # Type for indices and counters
 from ._oblique_tree cimport INT32_t          # Signed 32 bit integer
 from ._oblique_tree cimport UINT32_t         # Unsigned 32 bit integer
+
 
 cdef class Criterion:
     # The criterion computes the impurity of a node and the reduction of
@@ -68,9 +63,7 @@ cdef class Criterion:
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil
     cdef void node_value(self, double* dest) nogil
-    cdef double impurity_improvement(self, double impurity_parent,
-                                     double impurity_left,
-                                     double impurity_right) nogil
+    cdef double impurity_improvement(self, double impurity) nogil
     cdef double proxy_impurity_improvement(self) nogil
 
 cdef class ClassificationCriterion(Criterion):

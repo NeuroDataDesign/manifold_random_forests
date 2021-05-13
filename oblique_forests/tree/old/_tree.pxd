@@ -1,19 +1,41 @@
+# Authors: Gilles Louppe <g.louppe@gmail.com>
+#          Peter Prettenhofer <peter.prettenhofer@gmail.com>
+#          Brian Holt <bdholt1@gmail.com>
+#          Joel Nothman <joel.nothman@gmail.com>
+#          Arnaud Joly <arnaud.v.joly@gmail.com>
+#          Jacob Schreiber <jmschreiber91@gmail.com>
+#          Nelson Liu <nelson@nelsonliu.me>
+#
+# License: BSD 3 clause
+
 # See _tree.pyx for details.
 
 import numpy as np
 cimport numpy as np
 
-from ._split import BaseObliqueSplitter
+# ctypedef np.npy_float32 DTYPE_t          # Type of X
+# ctypedef np.npy_float64 DOUBLE_t         # Type of y, sample_weight
+# ctypedef np.npy_intp SIZE_t              # Type for indices and counters
+# ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
+# ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
+
+from ._oblique_tree cimport DTYPE_t          # Type of X
+from ._oblique_tree cimport DOUBLE_t         # Type of y, sample_weight
+from ._oblique_tree cimport SIZE_t           # Type for indices and counters
+from ._oblique_tree cimport INT32_t          # Signed 32 bit integer
+from ._oblique_tree cimport UINT32_t         # Unsigned 32 bit integer
+
+# from sklearn.tree._tree cimport DOUBLE_t         # Type of y, sample_weight
+# from sklearn.tree._tree cimport SIZE_t           # Type for indices and counters
+# from sklearn.tree._tree cimport INT32_t          # Signed 32 bit integer
+# from sklearn.tree._tree cimport UINT32_t         # Unsigned 32 bit integer
 
 
-ctypedef np.npy_float32 DTYPE_t          # Type of X
-ctypedef np.npy_float64 DOUBLE_t         # Type of y, sample_weight
-ctypedef np.npy_intp SIZE_t              # Type for indices and counters
-ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
-ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
+from ._splitter cimport Splitter
+from ._splitter cimport SplitRecord
 
 cdef struct Node:
-    # Base storage structure for the nodes in a Manifold Tree object
+    # Base storage structure for the nodes in a Tree object
 
     SIZE_t left_child                    # id of the left child of the node
     SIZE_t right_child                   # id of the right child of the node
@@ -23,10 +45,10 @@ cdef struct Node:
     SIZE_t n_node_samples                # Number of samples at the node
     DOUBLE_t weighted_n_node_samples     # Weighted number of samples at the node
 
-    
-cdef class MorfTree:
-    # The MorfTree object is a binary tree structure constructed by the
-    # MorfTreeBuilder. The tree structure is used for predictions and
+
+cdef class Tree:
+    # The Tree object is a binary tree structure constructed by the
+    # TreeBuilder. The tree structure is used for predictions and
     # feature importances.
 
     # Input/Output layout
@@ -48,7 +70,7 @@ cdef class MorfTree:
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
-                          double weighted_n_samples) nogil except -1
+                          double weighted_n_node_samples) nogil except -1
     cdef int _resize(self, SIZE_t capacity) nogil except -1
     cdef int _resize_c(self, SIZE_t capacity=*) nogil except -1
 
@@ -69,18 +91,18 @@ cdef class MorfTree:
 
 
 # =============================================================================
-# MorfTree builder
+# Tree builder
 # =============================================================================
 
-cdef class MorfTreeBuilder:
-    # The MorfTreeBuilder recursively builds a MorfTree object from training samples,
+cdef class TreeBuilder:
+    # The TreeBuilder recursively builds a Tree object from training samples,
     # using a Splitter object for splitting internal nodes and assigning
     # values to leaves.
     #
     # This class controls the various stopping criteria and the node splitting
     # evaluation order, e.g. depth-first or best-first.
 
-    cdef BaseObliqueSplitter splitter              # Splitting algorithm
+    cdef Splitter splitter              # Splitting algorithm
 
     cdef SIZE_t min_samples_split       # Minimum number of samples in an internal node
     cdef SIZE_t min_samples_leaf        # Minimum number of samples in a leaf
@@ -90,6 +112,5 @@ cdef class MorfTreeBuilder:
     cdef double min_impurity_decrease   # Impurity threshold for early stopping
 
     cpdef build(self, Tree tree, object X, np.ndarray y,
-                np.ndarray sample_weight=*,
-                np.ndarray X_idx_sorted=*)
+                np.ndarray sample_weight=*)
     cdef _check_input(self, object X, np.ndarray y, np.ndarray sample_weight)

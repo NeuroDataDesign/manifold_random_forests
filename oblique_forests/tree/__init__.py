@@ -1,2 +1,2 @@
-from ._classes import DecisionTreeClassifier
-from ._classes import DecisionTreeRegressor
+from ._classes import ObliqueDecisionTreeClassifier
+from ._classes import ObliqueDecisionTreeRegressor

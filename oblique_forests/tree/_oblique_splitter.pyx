@@ -8,6 +8,7 @@ cimport numpy as np
 np.import_array()
 
 from ._criterion cimport Criterion
+# from sklearn.tree._criterion cimport Criterion
 
 from libc.stdlib cimport malloc
 from libc.stdlib cimport free
@@ -412,7 +413,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             # Compute linear combination of features
             for i in range(start, end):
                 Xf[i] = 0
-                for j in range(n_features):
+                for j in range(0, n_features):
                     Xf[i] += self.X[samples[i], j] * proj_vec[j]
 
             # Sort the samples
@@ -431,7 +432,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                 # reject if min_samples_leaf not guaranteed
                 if ((current.pos - start) < min_samples_leaf or 
                     (end - current.pos) < min_samples_leaf):
-
                     continue
 
                 self.criterion.update(current.pos)
@@ -439,14 +439,13 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                 # reject if min_weight_leaf not satisfied
                 if (self.criterion.weighted_n_left < min_weight_leaf or
                     self.criterion.weighted_n_right < min_weight_leaf):
-
                     continue
 
                 current_proxy_improvement = self.criterion.proxy_impurity_improvement()
                 
                 if current_proxy_improvement > best_proxy_improvement:
                     best_proxy_improvement = current_proxy_improvement
-
+                    # sum of halves is used to avoid infinite value
                     current.threshold = Xf[p - 1] / 2.0 + Xf[p] / 2.0
 
                     if (current.threshold == Xf[p] or
@@ -476,16 +475,33 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                     partition_end -= 1
                     samples[p], samples[partition_end] = samples[partition_end], samples[p]
 
+            # self.criterion.reset()
+            # self.criterion.update(best.pos)
+            # best.improvement = self.criterion.impurity_improvement(impurity)
+            # self.criterion.children_impurity(&best.impurity_left, &best.impurity_right)
             self.criterion.reset()
             self.criterion.update(best.pos)
-            best.improvement = self.criterion.impurity_improvement(impurity)
-            self.criterion.children_impurity(&best.impurity_left, &best.impurity_right)
+            self.criterion.children_impurity(&best.impurity_left,
+                                             &best.impurity_right)
+            best.improvement = self.criterion.impurity_improvement(
+                impurity, best.impurity_left, best.impurity_right)
 
-        # Skipping over constant features part cause its irrelevant
+        # NOTE: skipping over constant features part cuz irrelevant
+        # Respect invariant for constant features: the original order of
+        # element in features[:n_known_constants] must be preserved for sibling
+        # and child nodes
+        # memcpy(features, constant_features, sizeof(SIZE_t) * n_known_constants)
+
+        # Copy newly found constant features
+        # memcpy(constant_features + n_known_constants,
+            #    features + n_known_constants,
+            #    sizeof(SIZE_t) * n_found_constants)
 
         # Return values
         split[0] = best
+        # n_constant_features[0] = n_total_constants
         return 0
+
 
 
 # Sort n-element arrays pointed to by Xf and samples, simultaneously,

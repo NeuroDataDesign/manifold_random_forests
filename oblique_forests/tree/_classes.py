@@ -38,19 +38,19 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import _deprecate_positional_args
 
 from ._criterion import Criterion
+from ._splitter import Splitter
+from ._tree import DepthFirstTreeBuilder, BestFirstTreeBuilder, Tree, _build_pruned_tree_ccp,  ccp_pruning_path
 from ._oblique_splitter import BaseObliqueSplitter
-from ._oblique_tree import DepthFirstTreeBuilder
-# from ._tree import BestFirstTreeBuilder
+from ._oblique_tree import ObliqueDepthFirstTreeBuilder
 from ._oblique_tree import ObliqueTree
-# from ._oblique_tree import _build_pruned_tree_ccp
-# from ._oblique_tree import ccp_pruning_path
-from . import _oblique_tree, _oblique_splitter, _criterion
+from . import _oblique_tree, _oblique_splitter, _criterion, _splitter#, _tree
 
-__all__ = ["DecisionTreeClassifier",
-           "DecisionTreeRegressor",
-        #    "ExtraTreeClassifier",
-        #    "ExtraTreeRegressor"
-           ]
+__all__ = [
+    "ObliqueDecisionTreeClassifier",
+    "ObliqueDecisionTreeRegressor",
+    #    "ExtraTreeClassifier",
+    #    "ExtraTreeRegressor"
+]
 
 
 # =============================================================================
@@ -60,30 +60,39 @@ __all__ = ["DecisionTreeClassifier",
 DTYPE = _oblique_tree.DTYPE
 DOUBLE = _oblique_tree.DOUBLE
 
-CRITERIA_CLF = {"gini": _criterion.Gini,
-                "entropy": _criterion.Entropy}
+CRITERIA_CLF = {"gini": _criterion.Gini, "entropy": _criterion.Entropy}
 # TODO: Remove "mse" in version 1.2.
-CRITERIA_REG = {"squared_error": _criterion.MSE,
-                "mse": _criterion.MSE,
-                "friedman_mse": _criterion.FriedmanMSE,
-                "mae": _criterion.MAE,
-                # "poisson": _criterion.Poisson
-                }
+CRITERIA_REG = {
+    "squared_error": _criterion.MSE,
+    "mse": _criterion.MSE,
+    "friedman_mse": _criterion.FriedmanMSE,
+    "mae": _criterion.MAE,
+    # "poisson": _criterion.Poisson
+}
 
-DENSE_SPLITTERS = {"best": _oblique_splitter.ObliqueSplitter,
-                #    "random": _oblique_splitter.RandomSplitter
-                   }
+OBLIQUE_DENSE_SPLITTERS = {
+    "best": _oblique_splitter.ObliqueSplitter,
+}
+
+OBLIQUE_SPARSE_SPLITTERS = {
+    # "best": _oblique_splitter.ObliqueSplitter,
+}
+
+DENSE_SPLITTERS = {"best": _splitter.BestSplitter,
+                   "random": _splitter.RandomSplitter}
+
 
 SPARSE_SPLITTERS = {
-    # "best": _splitter.BestSparseSplitter,
-                    # "random": _splitter.RandomSparseSplitter
-                    }
+    "best": _splitter.BestSparseSplitter,
+    "random": _splitter.RandomSparseSplitter
+}
 
 # =============================================================================
 # Base decision tree
 # =============================================================================
 
-
+# copied from sklearn -> just need to add private methods for setting builder
+# tree and splitter
 class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
     """Base class for decision trees.
 
@@ -105,7 +114,6 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                  random_state,
                  min_impurity_decrease,
                  min_impurity_split,
-                 feature_combinations,
                  class_weight=None,
                  ccp_alpha=0.0):
         self.criterion = criterion
@@ -119,12 +127,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self.random_state = random_state
         self.min_impurity_decrease = min_impurity_decrease
         self.min_impurity_split = min_impurity_split
-        self.feature_combinations = feature_combinations
         self.class_weight = class_weight
         self.ccp_alpha = ccp_alpha
-
-        # SPORF params
-        self.feature_combinations = feature_combinations
 
     def get_depth(self):
         """Return the depth of the decision tree.
@@ -369,47 +373,24 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                     "which is equivalent.",
                     FutureWarning
                 )
+            elif self.criterion == "mae":
+                warnings.warn(
+                    "Criterion 'mae' was deprecated in v1.0 and will be "
+                    "removed in version 1.2. Use `criterion='absolute_error'` "
+                    "which is equivalent.",
+                    FutureWarning
+                )
         else:
             # Make a deepcopy in case the criterion has mutable attributes that
             # might be shared and modified concurrently during parallel fitting
             criterion = copy.deepcopy(criterion)
 
-        SPLITTERS = SPARSE_SPLITTERS if issparse(X) else DENSE_SPLITTERS
-
-        splitter = self.splitter
-        if not isinstance(self.splitter, BaseObliqueSplitter):
-            splitter = SPLITTERS[self.splitter](criterion,
-                                                self.max_features_,
-                                                min_samples_leaf,
-                                                min_weight_leaf,
-                                                self.feature_combinations,
-                                                random_state)
-
-        if is_classifier(self):
-            self.tree_ = ObliqueTree(self.n_features_,
-                              self.n_classes_, self.n_outputs_)
-        else:
-            self.tree_ = ObliqueTree(self.n_features_,
-                              # TODO: tree should't need this in this case
-                              np.array([1] * self.n_outputs_, dtype=np.intp),
-                              self.n_outputs_)
-
-        # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
-        if max_leaf_nodes < 0:
-            builder = DepthFirstTreeBuilder(splitter, min_samples_split,
-                                            min_samples_leaf,
-                                            min_weight_leaf,
-                                            max_depth,
-                                            self.min_impurity_decrease,
-                                            min_impurity_split)
-        # else:
-            # builder = BestFirstTreeBuilder(splitter, min_samples_split,
-            #                                min_samples_leaf,
-            #                                min_weight_leaf,
-            #                                max_depth,
-            #                                max_leaf_nodes,
-            #                                self.min_impurity_decrease,
-            #                                min_impurity_split)
+        # set splitter, tree and tree builder
+        splitter = self._set_splitter(issparse(X), criterion, min_samples_leaf, 
+                            min_weight_leaf, random_state)
+        self._set_tree()
+        builder = self._set_builder(splitter, min_samples_split, min_samples_leaf, min_weight_leaf, 
+            max_depth, max_leaf_nodes, min_impurity_split)
 
         builder.build(self.tree_, X, y, sample_weight)
 
@@ -420,6 +401,48 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self._prune_tree()
 
         return self
+
+    def _set_splitter(self, issparse, criterion, min_samples_leaf, min_weight_leaf, random_state):
+        SPLITTERS = SPARSE_SPLITTERS if issparse else DENSE_SPLITTERS
+
+        splitter = self.splitter
+        if not isinstance(self.splitter, Splitter):
+            splitter = SPLITTERS[self.splitter](criterion,
+                                                self.max_features_,
+                                                min_samples_leaf,
+                                                min_weight_leaf,
+                                                random_state)
+        return splitter
+
+    def _set_tree(self):
+        if is_classifier(self):
+            self.tree_ = Tree(self.n_features_,
+                              self.n_classes_, self.n_outputs_)
+        else:
+            self.tree_ = Tree(self.n_features_,
+                              # TODO: tree should't need this in this case
+                              np.array([1] * self.n_outputs_, dtype=np.intp),
+                              self.n_outputs_)
+
+    def _set_builder(self, splitter, min_samples_split, min_samples_leaf, min_weight_leaf, 
+            max_depth, max_leaf_nodes, min_impurity_split):
+        # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
+        if max_leaf_nodes < 0:
+            builder = DepthFirstTreeBuilder(splitter, min_samples_split,
+                                            min_samples_leaf,
+                                            min_weight_leaf,
+                                            max_depth,
+                                            self.min_impurity_decrease,
+                                            min_impurity_split)
+        else:
+            builder = BestFirstTreeBuilder(splitter, min_samples_split,
+                                           min_samples_leaf,
+                                           min_weight_leaf,
+                                           max_depth,
+                                           max_leaf_nodes,
+                                           self.min_impurity_decrease,
+                                           min_impurity_split)
+        return builder
 
     def _validate_X_predict(self, X, check_input):
         """Validate the training data on predict (probabilities)."""
@@ -553,9 +576,9 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         # build pruned tree
         if is_classifier(self):
             n_classes = np.atleast_1d(self.n_classes_)
-            pruned_tree = ObliqueTree(self.n_features_, n_classes, self.n_outputs_)
+            pruned_tree = Tree(self.n_features_, n_classes, self.n_outputs_)
         else:
-            pruned_tree = ObliqueTree(self.n_features_,
+            pruned_tree = Tree(self.n_features_,
                                # TODO: the tree shouldn't need this param
                                np.array([1] * self.n_outputs_, dtype=np.intp),
                                self.n_outputs_)
@@ -625,11 +648,102 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         return self.tree_.compute_feature_importances()
 
 
+class BaseObliqueDecisionTree(BaseDecisionTree):
+    """Base class for decision trees.
+
+    Warning: This class should not be used directly.
+    Use derived classes instead.
+    """
+
+    @abstractmethod
+    @_deprecate_positional_args
+    def __init__(
+        self,
+        *,
+        criterion,
+        splitter,
+        max_depth,
+        min_samples_split,
+        min_samples_leaf,
+        min_weight_fraction_leaf,
+        max_features,
+        max_leaf_nodes,
+        random_state,
+        min_impurity_decrease,
+        min_impurity_split,
+        feature_combinations=None,
+        class_weight=None,
+        ccp_alpha=0.0
+    ):
+        super(BaseObliqueDecisionTree, self).__init__(
+            criterion=criterion,
+            splitter=splitter,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            max_features=max_features,
+            max_leaf_nodes=max_leaf_nodes,
+            random_state=random_state,
+            min_impurity_decrease=min_impurity_decrease,
+            min_impurity_split=min_impurity_split,
+            class_weight=class_weight,
+            ccp_alpha=ccp_alpha,
+        )
+
+        # SPORF params
+        self.feature_combinations = feature_combinations
+
+    def _set_splitter(self, issparse, criterion, min_samples_leaf, min_weight_leaf, random_state):
+        SPLITTERS = OBLIQUE_SPARSE_SPLITTERS if issparse else OBLIQUE_DENSE_SPLITTERS
+
+        splitter = self.splitter
+        if not isinstance(self.splitter, BaseObliqueSplitter):
+            splitter = SPLITTERS[self.splitter](
+                criterion,
+                self.max_features_,
+                min_samples_leaf,
+                min_weight_leaf,
+                self.feature_combinations,
+                random_state,
+            )
+        return splitter
+    
+    def _set_tree(self):
+        if is_classifier(self):
+            self.tree_ = ObliqueTree(self.n_features_, self.n_classes_, self.n_outputs_)
+        else:
+            self.tree_ = ObliqueTree(
+                self.n_features_,
+                # TODO: tree should't need this in this case
+                np.array([1] * self.n_outputs_, dtype=np.intp),
+                self.n_outputs_,
+            )
+
+    def _set_builder(self, splitter, min_samples_split, min_samples_leaf, min_weight_leaf, 
+            max_depth, max_leaf_nodes, min_impurity_split):
+        # Use BestFirst if max_leaf_nodes given; use DepthFirst otherwise
+        if max_leaf_nodes < 0:
+            builder = ObliqueDepthFirstTreeBuilder(
+                splitter,
+                min_samples_split,
+                min_samples_leaf,
+                min_weight_leaf,
+                max_depth,
+                self.min_impurity_decrease,
+                min_impurity_split,
+            )
+        else:
+            raise NotImplementedError('Havent implemented Best First tree builder')
+        return builder
+
+
 # =============================================================================
 # Public estimators
 # =============================================================================
 
-class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
+
+class ObliqueDecisionTreeClassifier(ClassifierMixin, BaseObliqueDecisionTree):
     """A decision tree classifier.
 
     Read more in the :ref:`User Guide <tree>`.
@@ -853,22 +967,26 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
     array([ 1.     ,  0.93...,  0.86...,  0.93...,  0.93...,
             0.93...,  0.93...,  1.     ,  0.93...,  1.      ])
     """
+
     @_deprecate_positional_args
-    def __init__(self, *,
-                 criterion="gini",
-                 splitter="best",
-                 feature_combinations=1.5,
-                 max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
-                 min_weight_fraction_leaf=0.,
-                 max_features=None,
-                 random_state=None,
-                 max_leaf_nodes=None,
-                 min_impurity_decrease=0.,
-                 min_impurity_split=None,
-                 class_weight=None,
-                 ccp_alpha=0.0):
+    def __init__(
+        self,
+        *,
+        criterion="gini",
+        splitter="best",
+        feature_combinations=1.5,
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        min_weight_fraction_leaf=0.0,
+        max_features=None,
+        random_state=None,
+        max_leaf_nodes=None,
+        min_impurity_decrease=0.0,
+        min_impurity_split=None,
+        class_weight=None,
+        ccp_alpha=0.0
+    ):
         super().__init__(
             criterion=criterion,
             splitter=splitter,
@@ -883,10 +1001,12 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             min_impurity_decrease=min_impurity_decrease,
             min_impurity_split=min_impurity_split,
             feature_combinations=feature_combinations,
-            ccp_alpha=ccp_alpha)
+            ccp_alpha=ccp_alpha,
+        )
 
-    def fit(self, X, y, sample_weight=None, check_input=True,
-            X_idx_sorted="deprecated"):
+    def fit(
+        self, X, y, sample_weight=None, check_input=True, X_idx_sorted="deprecated"
+    ):
         """Build a decision tree classifier from the training set (X, y).
 
         Parameters
@@ -923,10 +1043,12 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         """
 
         super().fit(
-            X, y,
+            X,
+            y,
             sample_weight=sample_weight,
             check_input=check_input,
-            X_idx_sorted=X_idx_sorted)
+            X_idx_sorted=X_idx_sorted,
+        )
         return self
 
     def predict_proba(self, X, check_input=True):
@@ -958,7 +1080,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         proba = self.tree_.predict(X)
 
         if self.n_outputs_ == 1:
-            proba = proba[:, :self.n_classes_]
+            proba = proba[:, : self.n_classes_]
             normalizer = proba.sum(axis=1)[:, np.newaxis]
             normalizer[normalizer == 0.0] = 1.0
             proba /= normalizer
@@ -969,7 +1091,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             all_proba = []
 
             for k in range(self.n_outputs_):
-                proba_k = proba[:, k, :self.n_classes_[k]]
+                proba_k = proba[:, k, : self.n_classes_[k]]
                 normalizer = proba_k.sum(axis=1)[:, np.newaxis]
                 normalizer[normalizer == 0.0] = 1.0
                 proba_k /= normalizer
@@ -996,7 +1118,6 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         """
         proba = self.predict_proba(X)
 
-        print('The probabilityies are: ', proba)
         if self.n_outputs_ == 1:
             return np.log(proba)
 
@@ -1007,7 +1128,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             return proba
 
 
-class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
+class ObliqueDecisionTreeRegressor(RegressorMixin, BaseObliqueDecisionTree):
     """A decision tree regressor.
 
     Read more in the :ref:`User Guide <tree>`.
@@ -1213,21 +1334,25 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
     array([-0.39..., -0.46...,  0.02...,  0.06..., -0.50...,
            0.16...,  0.11..., -0.73..., -0.30..., -0.00...])
     """
+
     @_deprecate_positional_args
-    def __init__(self, *,
-                 criterion="squared_error",
-                 splitter="best",
-                 max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
-                 min_weight_fraction_leaf=0.,
-                 max_features=None,
-                 random_state=None,
-                 max_leaf_nodes=None,
-                 min_impurity_decrease=0.,
-                 min_impurity_split=None,
-                 feature_combinations=1.5,
-                 ccp_alpha=0.0):
+    def __init__(
+        self,
+        *,
+        criterion="squared_error",
+        splitter="best",
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        min_weight_fraction_leaf=0.0,
+        max_features=None,
+        random_state=None,
+        max_leaf_nodes=None,
+        min_impurity_decrease=0.0,
+        min_impurity_split=None,
+        feature_combinations=1.5,
+        ccp_alpha=0.0
+    ):
         super().__init__(
             criterion=criterion,
             splitter=splitter,
@@ -1241,10 +1366,12 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
             min_impurity_decrease=min_impurity_decrease,
             min_impurity_split=min_impurity_split,
             feature_combinations=1.5,
-            ccp_alpha=ccp_alpha)
+            ccp_alpha=ccp_alpha,
+        )
 
-    def fit(self, X, y, sample_weight=None, check_input=True,
-            X_idx_sorted="deprecated"):
+    def fit(
+        self, X, y, sample_weight=None, check_input=True, X_idx_sorted="deprecated"
+    ):
         """Build a decision tree regressor from the training set (X, y).
 
         Parameters
@@ -1280,10 +1407,12 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         """
 
         super().fit(
-            X, y,
+            X,
+            y,
             sample_weight=sample_weight,
             check_input=check_input,
-            X_idx_sorted=X_idx_sorted)
+            X_idx_sorted=X_idx_sorted,
+        )
         return self
 
     def _compute_partial_dependence_recursion(self, grid, target_features):
@@ -1303,12 +1432,12 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         averaged_predictions : ndarray of shape (n_samples,)
             The value of the partial dependence function on each grid point.
         """
-        grid = np.asarray(grid, dtype=DTYPE, order='C')
-        averaged_predictions = np.zeros(shape=grid.shape[0],
-                                        dtype=np.float64, order='C')
+        grid = np.asarray(grid, dtype=DTYPE, order="C")
+        averaged_predictions = np.zeros(
+            shape=grid.shape[0], dtype=np.float64, order="C"
+        )
 
         self.tree_.compute_partial_dependence(
-            grid, target_features, averaged_predictions)
+            grid, target_features, averaged_predictions
+        )
         return averaged_predictions
-
-

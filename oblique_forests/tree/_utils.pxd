@@ -10,6 +10,7 @@
 
 import numpy as np
 cimport numpy as np
+from ._tree cimport Node
 from ._oblique_tree cimport ObliqueNode
 
 ctypedef np.npy_float32 DTYPE_t          # Type of X
@@ -17,7 +18,6 @@ ctypedef np.npy_float64 DOUBLE_t         # Type of y, sample_weight
 ctypedef np.npy_intp SIZE_t              # Type for indices and counters
 ctypedef np.npy_int32 INT32_t            # Signed 32 bit integer
 ctypedef np.npy_uint32 UINT32_t          # Unsigned 32 bit integer
-
 
 # XXX: Careful to not change the order of the arguments. It is important to
 # have is_leaf and max_width consecutive as it permits to avoid padding by
@@ -68,13 +68,36 @@ ctypedef fused realloc_ptr:
     (WeightedPQueueRecord*)
     (DOUBLE_t*)
     (DOUBLE_t**)
+    (Node*)
     (Cell*)
+    (Node**)
     (StackRecord*)
     (PriorityHeapRecord*)
     (ObliqueNode*)
     (ObliqueNode**)
     (DTYPE_t**)
-    # (ObliqueStackRecord*)  # is this needed?! - ADAM 
+
+#     # safe_realloc(&p, n) resizes the allocation of p to n * sizeof(*p) bytes or
+# # raises a MemoryError. It never calls free, since that's __dealloc__'s job.
+# #   cdef DTYPE_t *p = NULL
+# #   safe_realloc(&p, n)
+# # is equivalent to p = malloc(n * sizeof(*p)) with error checking.
+# ctypedef fused realloc_ptr:
+#     # Add pointer types here as needed.
+#     (DTYPE_t*)
+#     (SIZE_t*)
+#     (unsigned char*)
+#     (WeightedPQueueRecord*)
+#     (DOUBLE_t*)
+#     (DOUBLE_t**)
+#     (Cell*)
+#     (StackRecord*)
+#     (PriorityHeapRecord*)
+#     (Node*)
+#     (Node**)
+
+#     (DTYPE_t**)
+#     # (ObliqueStackRecord*)  # is this needed?! - ADAM 
 
 cdef realloc_ptr safe_realloc(realloc_ptr* p, size_t nelems) nogil except *
 
