@@ -37,3 +37,6 @@ cover
 .vscode/
 
 __pycache__
+
+# Profiling
+*.prof

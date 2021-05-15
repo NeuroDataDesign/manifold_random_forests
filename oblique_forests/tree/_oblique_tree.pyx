@@ -254,7 +254,9 @@ cdef class ObliqueDepthFirstTreeBuilder(ObliqueTreeBuilder):
 
                 node_id = tree._add_node(parent, is_left, is_leaf, split.feature,
                                          split.threshold, impurity, n_node_samples,
-                                         weighted_n_node_samples, split.proj_vec)
+                                         weighted_n_node_samples, 
+                                         split.proj_vec_weights, 
+                                         split.proj_vec_indices)
 
                 if node_id == SIZE_MAX:
                     rc = -1
@@ -415,7 +417,9 @@ cdef class ObliqueTree:
         self.value = NULL
         self.nodes = NULL
 
-        self.proj_vecs = NULL
+        # XXX: check how to initialize empty vectors
+        self.proj_vec_weights = vector[vector[DTYPE_t]](self.capacity)
+        self.proj_vec_indices = vector[vector[SIZE_t]](self.capacity)
 
     def __dealloc__(self):
         """Destructor."""
@@ -423,13 +427,14 @@ cdef class ObliqueTree:
         free(self.n_classes)
         free(self.value)
         
+        # XXX: self.proj_vecs is a vector, so clean-up is automatic
         # Deallocate memory for all proj_vecs
         # print(self.node_count)
-        for i in range(self.node_count):
-            free(self.proj_vecs[i])
+        # for i in range(self.node_count):
+        #     free(self.proj_vecs[i])
         # print("freed each projection vector")
         
-        free(self.proj_vecs)
+        # free(self.proj_vecs)
         # print("freed proj_vec array")
 
         free(self.nodes)
@@ -519,7 +524,9 @@ cdef class ObliqueTree:
         safe_realloc(&self.value, capacity * self.value_stride)
 
         # resize projection vectors
-        safe_realloc(&self.proj_vecs, capacity) 
+        # safe_realloc(&self.proj_vecs, capacity) 
+        self.proj_vec_weights.resize(capacity)
+        self.proj_vec_indices.resize(capacity)
 
         # value memory is initialised to 0 to enable classifier argmax
         if capacity > self.capacity:
@@ -534,10 +541,16 @@ cdef class ObliqueTree:
         self.capacity = capacity
         return 0
 
+    # cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
+    #                       SIZE_t feature, double threshold, double impurity,
+    #                       SIZE_t n_node_samples,
+    #                       double weighted_n_node_samples, DTYPE_t* proj_vec) nogil except -1:
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
-                          double weighted_n_node_samples, DTYPE_t* proj_vec) nogil except -1:
+                          double weighted_n_node_samples, 
+                          vector[DTYPE_t]& proj_vec_weights,
+                          vector[SIZE_t]& proj_vec_indices) nogil except -1:
         """Add a node to the tree.
 
         The new node registers itself as the child of its parent.
@@ -565,8 +578,8 @@ cdef class ObliqueTree:
                 self.nodes[parent].right_child = node_id
 
         # allocate memory for projection vector for this node
-        self.proj_vecs[node_id] = NULL
-        safe_realloc(&self.proj_vecs[node_id], self.n_features)
+        # self.proj_vecs[node_id] = NULL
+        # safe_realloc(&self.proj_vecs[node_id], self.n_features)
 
         if is_leaf:
             node.left_child = _TREE_LEAF
@@ -585,10 +598,8 @@ cdef class ObliqueTree:
             # self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
             # with gil:
             #     print('Allocating memory for proj_vecs')
-            for i in range(n_features):
-                self.proj_vecs[node_id][i] = proj_vec[i]
-                # with gil:
-                #     print('Set projection vector for ', node_id)
+            self.proj_vec_weights[node_id] = proj_vec_weights
+            self.proj_vec_indices[node_id] = proj_vec_indices
 
         self.node_count += 1
 
@@ -634,7 +645,9 @@ cdef class ObliqueTree:
         cdef SIZE_t i = 0
         cdef SIZE_t j = 0
         cdef DTYPE_t proj_feat = 0
-        cdef DTYPE_t* proj_vec
+        # cdef DTYPE_t* proj_vec
+        cdef vector[DTYPE_t] proj_vec_weights
+        cdef vector[SIZE_t] proj_vec_indices
         cdef SIZE_t node_id = 0
 
         with nogil:
@@ -649,9 +662,10 @@ cdef class ObliqueTree:
 
                     # compute projection of the data based on trained tree
                     proj_feat = 0
-                    proj_vec = self.proj_vecs[node_id]
-                    for j in range(n_features):
-                        proj_feat += X_ndarray[i, j] * proj_vec[j]
+                    proj_vec_weights = self.proj_vec_weights[node_id]
+                    proj_vec_indices = self.proj_vec_indices[node_id]
+                    for j in range(proj_vec_indices.size()):
+                        proj_feat += X_ndarray[i, proj_vec_indices[j]] * proj_vec_weights[j]
 
                     if proj_feat <= node.threshold:
                         node_id = node.left_child
@@ -777,7 +791,9 @@ cdef class ObliqueTree:
         cdef SIZE_t i = 0
         cdef SIZE_t j = 0
         cdef DTYPE_t proj_feat = 0
-        cdef DTYPE_t* proj_vec
+        # cdef DTYPE_t* proj_vec
+        cdef vector[DTYPE_t] proj_vec_weights
+        cdef vector[SIZE_t] proj_vec_indices
 
         # to traverse the nodes
         cdef SIZE_t node_id = 0
@@ -800,9 +816,10 @@ cdef class ObliqueTree:
 
                     # compute projection of the data based on trained tree
                     proj_feat = 0
-                    proj_vec = self.proj_vecs[node_id]
-                    for j in range(n_features):
-                        proj_feat += X_ndarray[i, j] * proj_vec[j]
+                    proj_vec_weights = self.proj_vec_weights[node_id]
+                    proj_vec_indices = self.proj_vec_indices[node_id]
+                    for j in range(proj_vec_indices.size()):
+                        proj_feat += X_ndarray[i, proj_vec_indices[j]] * proj_vec_weights[j]
 
                     if proj_feat <= node.threshold:
                         node_id = node.left_child

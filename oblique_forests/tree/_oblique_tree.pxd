@@ -1,3 +1,5 @@
+# distutils: language = c++
+
 # Authors: Gilles Louppe <g.louppe@gmail.com>
 #          Peter Prettenhofer <peter.prettenhofer@gmail.com>
 #          Brian Holt <bdholt1@gmail.com>
@@ -12,6 +14,8 @@
 
 import numpy as np
 cimport numpy as np
+
+from libcpp.vector cimport vector
 
 ctypedef np.npy_float32 DTYPE_t          # Type of X
 ctypedef np.npy_float64 DOUBLE_t         # Type of y, sample_weight
@@ -65,14 +69,17 @@ cdef class ObliqueTree:
     cdef double* value                   # (capacity, n_outputs, max_n_classes) array of values
     cdef SIZE_t value_stride             # = n_outputs * max_n_classes
 
-    cdef DTYPE_t** proj_vecs             # (capacity, n_features) array of projection vectors
+    # cdef DTYPE_t** proj_vecs             # (capacity, n_features) array of projection vectors
+    cdef vector[vector[DTYPE_t]] proj_vec_weights # (capacity, n_features) array of projection vectors
+    cdef vector[vector[SIZE_t]] proj_vec_indices # (capacity, n_features) array of projection vectors
 
     # Methods
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
                           double weighted_n_samples, 
-                          DTYPE_t* proj_vec) nogil except -1
+                          vector[DTYPE_t]& proj_vec_weights,
+                          vector[SIZE_t]& proj_vec_indices) nogil except -1
     cdef int _resize(self, SIZE_t capacity) nogil except -1
     cdef int _resize_c(self, SIZE_t capacity=*) nogil except -1
 

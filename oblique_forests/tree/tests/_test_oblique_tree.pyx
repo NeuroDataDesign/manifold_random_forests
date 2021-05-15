@@ -110,7 +110,8 @@ def test_cinit():
     assert tree.capacity == 0
     assert tree.value == NULL
     assert tree.nodes == NULL
-    assert tree.proj_vecs == NULL
+    assert tree.proj_vec_weights.size() == 0
+    assert tree.proj_vec_indices.size() == 0
 
 
 def test_add_node():
@@ -159,15 +160,23 @@ def test_add_node():
 
     node_id = tree._add_node(parent, is_left, is_leaf, split.feature,
                              split.threshold, impurity, n_node_samples,
-                             weighted_n_node_samples, split.proj_vec)
+                             weighted_n_node_samples, split.proj_vec_weights,
+                             split.proj_vec_indices)
 
-    assert split.proj_vec != NULL
-    assert tree.proj_vecs != NULL
-    assert tree.proj_vecs[node_id] != NULL
-    for i in range(tree.n_features):
-        assert (tree.proj_vecs[node_id][i] 
-                == split.proj_vec[i] 
-                == splitter.proj_mat[split.feature][i])
+    assert split.proj_vec_weights.size() > 0
+    assert split.proj_vec_indices.size() > 0
+    assert tree.proj_vec_weights.size() > 0
+    assert tree.proj_vec_indices.size() > 0
+    assert tree.proj_vec_weights[node_id].size() > 0
+    assert tree.proj_vec_indices[node_id].size() > 0
+    assert all([split.proj_vec_weights[i]
+                == tree.proj_vec_weights[node_id][i] 
+                == splitter.proj_mat_weights[split.feature][i]
+                for i in range(split.proj_vec_weights.size())])
+    assert all([split.proj_vec_indices[i]
+                == tree.proj_vec_indices[node_id][i]
+                == splitter.proj_mat_indices[split.feature][i]
+                for i in range(split.proj_vec_indices.size())])
 
 
 def test_build_tree():
@@ -196,7 +205,12 @@ def test_build_tree():
                                                      min_impurity_split)
     builder.build(tree, X, y)
     assert tree.node_count > 0
-    assert tree.proj_vecs != NULL
+    assert tree.proj_vec_weights.size() > 0
+    assert tree.proj_vec_indices.size() > 0
+    assert any(tree.proj_vec_weights[i].size() > 0
+               for i in range(tree.proj_vec_weights.size()))
+    assert any(tree.proj_vec_indices[i].size() > 0
+               for i in range(tree.proj_vec_indices.size()))
 
 
 def test_diabetes():
@@ -225,4 +239,9 @@ def test_diabetes():
                                                      min_impurity_split)
     builder.build(tree, X, y)
     assert tree.node_count > 0
-    assert tree.proj_vecs != NULL
+    assert tree.proj_vec_weights.size() > 0
+    assert tree.proj_vec_indices.size() > 0
+    assert any(tree.proj_vec_weights[i].size() > 0
+               for i in range(tree.proj_vec_weights.size()))
+    assert any(tree.proj_vec_indices[i].size() > 0
+               for i in range(tree.proj_vec_indices.size()))

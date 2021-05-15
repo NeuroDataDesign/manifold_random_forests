@@ -43,9 +43,11 @@ cdef struct ObliqueSplitRecord:
     double impurity_left   # Impurity of the left split.
     double impurity_right  # Impurity of the right split.
 
-    DTYPE_t* proj_vec      # Projection vector to apply to data sample. It 
-                           # can be weighted, where the weights correspond to 
-                           # a different basis.
+    # DTYPE_t* proj_vec      # Projection vector to apply to data sample. It 
+    #                        # can be weighted, where the weights correspond to 
+    #                        # a different basis.
+    vector[DTYPE_t] proj_vec_weights
+    vector[SIZE_t] proj_vec_indices
 
     # NOTE: differs from SplitInfo inside `oblique_base.py`
     # TODO:
@@ -68,7 +70,8 @@ cdef class BaseObliqueSplitter:
 
     # SPORF extra parameters
     cdef public double feature_combinations  # Number of features to combine
-    cdef DTYPE_t** proj_mat               # temp 2D array holding sampled projection matrix
+    cdef vector[vector[DTYPE_t]] proj_mat_weights        # nonzero weights of sparse proj_mat matrix
+    cdef vector[vector[SIZE_t]] proj_mat_indices        # nonzero indices of sparse proj_mat matrix
     #cdef SIZE_t proj_dims                # size of the projected dimension
     cdef SIZE_t n_non_zeros              # density (i.e. number of non-zeros) of the projection vector
 
@@ -125,6 +128,12 @@ cdef class BaseObliqueSplitter:
 
     #cdef double impurity(self, double[:] y) nogil
 
-    cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil 
+    # cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil 
+    # cdef void sample_proj_mat(self, 
+    #                           DTYPE_t* proj_mat_weights, 
+    #                           DTYPE_t* proj_mat_indices) nogil 
+    cdef void sample_proj_mat(self, 
+                              vector[vector[DTYPE_t]]& proj_vec_weights,
+                              vector[vector[SIZE_t]]& proj_vec_indices) nogil 
 
 
