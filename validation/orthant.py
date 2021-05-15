@@ -74,7 +74,12 @@ def test_of(n, reps, n_estimators, feature_combinations, max_features):
                   n_jobs=-1
               )
 
+        # Profile fitting
+        import yep
+        yep.start(f'cysporf_fit_orthant_{n}.prof')
         clf.fit(X_train, y_train)
+        yep.stop()
+
         preds[i] = clf.predict(X_test)
         acc[i] = np.sum(preds[i] == y_test) / len(y_test)
 
