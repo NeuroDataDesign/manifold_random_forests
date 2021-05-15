@@ -47,6 +47,7 @@ cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.feature = 0
     self.threshold = 0.
     self.improvement = -INFINITY
+    # XXX: Not sure whether to set proj_vec to some default vector
     # self.proj_vec = NULL
 
 cdef class BaseObliqueSplitter:
@@ -100,11 +101,7 @@ cdef class BaseObliqueSplitter:
         # SPORF parameters
         self.feature_combinations = feature_combinations
 
-        # Sparse max_features x n_features matrix
-        # TODO: Initialize so that we have max_features empty vectors?
-
-        # cdef vector[DTYPE_t] empty_vec1
-        # cdef vector[SIZE_t] empty_vec2
+        # Sparse max_features x n_features projection matrix
         self.proj_mat_weights = vector[vector[DTYPE_t]](self.max_features)
         self.proj_mat_indices = vector[vector[SIZE_t]](self.max_features)
         self.n_non_zeros = max(int(self.max_features * self.feature_combinations), 1)
@@ -124,7 +121,7 @@ cdef class BaseObliqueSplitter:
         free(self.feature_values)
         # print("freed feature_values")
         
-        # XXX: C++ vectors handle their own clean-up
+        # NOTE: C++ vectors handle their own clean-up
         # if self.proj_mat:
         #     for i in range(self.max_features):
         #         free(self.proj_mat[i])
@@ -264,6 +261,7 @@ cdef class BaseObliqueSplitter:
         #     self.proj_mat_weights[i] = 0
         #     self.proj_mat_indices[i] = 0
 
+        # Clear all projection vectors
         for i in range(self.max_features):
             self.proj_mat_weights[i].clear()
             self.proj_mat_indices[i].clear()
@@ -290,7 +288,6 @@ cdef class BaseObliqueSplitter:
         """Return the impurity of the current node."""
         return self.criterion.node_impurity()
 
-    # cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
     cdef void sample_proj_mat(self, 
                               vector[vector[DTYPE_t]]& proj_mat_weights, 
                               vector[vector[SIZE_t]]& proj_mat_indices) nogil:
@@ -342,6 +339,8 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         # safe_realloc(&self.proj_mat_weights, self.n_non_zeros)
         # safe_realloc(&self.proj_mat_indices, self.n_non_zeros)
 
+
+        # NOTE: No need to set to zero anymore, we just have cleared/empty vectors instead
         # cdef SIZE_t i, j
         # for i in range(self.max_features):
         #     self.proj_mat[i] = <DTYPE_t*> malloc(self.n_features * (sizeof(DTYPE_t)))
@@ -361,7 +360,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                                self.feature_combinations,
                                self.random_state), self.__getstate__())
 
-    # cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
+    # NOTE: vectors are passed by value, so & is needed to pass by reference
     cdef void sample_proj_mat(self, 
                               vector[vector[DTYPE_t]]& proj_mat_weights,
                               vector[vector[SIZE_t]]& proj_mat_indices) nogil:

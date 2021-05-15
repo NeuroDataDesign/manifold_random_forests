@@ -417,7 +417,6 @@ cdef class ObliqueTree:
         self.value = NULL
         self.nodes = NULL
 
-        # XXX: check how to initialize empty vectors
         self.proj_vec_weights = vector[vector[DTYPE_t]](self.capacity)
         self.proj_vec_indices = vector[vector[SIZE_t]](self.capacity)
 
@@ -427,7 +426,7 @@ cdef class ObliqueTree:
         free(self.n_classes)
         free(self.value)
         
-        # XXX: self.proj_vecs is a vector, so clean-up is automatic
+        # NOTE: vector clean-up is automatic
         # Deallocate memory for all proj_vecs
         # print(self.node_count)
         # for i in range(self.node_count):
@@ -541,10 +540,6 @@ cdef class ObliqueTree:
         self.capacity = capacity
         return 0
 
-    # cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
-    #                       SIZE_t feature, double threshold, double impurity,
-    #                       SIZE_t n_node_samples,
-    #                       double weighted_n_node_samples, DTYPE_t* proj_vec) nogil except -1:
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
