@@ -68,6 +68,9 @@ def prep_X_y(X, y):
     y = np.ascontiguousarray(y, dtype=DOUBLE)
     return X, y
 
+# =============================================================================
+# Cython-level tests
+# =============================================================================
 
 def test_init():
     X = DATASETS["toy"]["X"]

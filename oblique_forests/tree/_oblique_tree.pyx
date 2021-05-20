@@ -457,6 +457,13 @@ cdef class ObliqueTree:
         # TODO: added but not sure if it works
         # cdef float[::1] proj_vecs_arr = <float [:self.proj_vecs.size()]> self.proj_vecs.data()
         # d['proj_vecs'] = np.asarray(<DTYPE_t[:,:]> proj_vecs_arr)
+        proj_vecs = np.zeros((self.node_count, self.n_features))
+        for i in range(0, self.node_count):
+            for j in range(0, self.proj_vec_weights[i].size()):
+                weight = self.proj_vec_weights[i][j]
+                feat = self.proj_vec_indices[i][j]
+                proj_vecs[i, feat] = weight
+        d['proj_vecs'] = proj_vecs
         return d
 
     def __setstate__(self, d):
@@ -491,6 +498,16 @@ cdef class ObliqueTree:
 
         # TODO: pickling for proj_vecs
         proj_vecs = d['proj_vecs']
+        self.n_features = proj_vecs.shape[1]
+        self.proj_vec_weights = vector[vector[DTYPE_t]](self.node_count)
+        self.proj_vec_indices = vector[vector[SIZE_t]](self.node_count)
+        for i in range(0, self.node_count):
+            for j in range(0, self.n_features):
+                weight = proj_vecs[i, j]
+                if weight == 0:
+                    continue
+                self.proj_vec_weights[i].push_back(weight)
+                self.proj_vec_indices[i].push_back(j)
 
     cdef int _resize(self, SIZE_t capacity) nogil except -1:
         """Resize all inner arrays to `capacity`, if `capacity` == -1, then

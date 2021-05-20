@@ -383,13 +383,18 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             feat_i = rand_int(0, n_features, random_state)
             weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
 
-            proj_mat_weights[proj_i].push_back(weight)  # Store weight of nonzero
-            proj_mat_indices[proj_i].push_back(feat_i)  # Store index of nonzero
-
             # proj_mat[proj_i][feat_i] = weight
 
-            # proj_mat_weights[i] = 1 if (rand_int(0, 2, random_state) == 1) else -1
             # proj_mat_indices[i] = rand_int(0, max_features * n_features, random_state)
+            # proj_mat_weights[i] = 1 if (rand_int(0, 2, random_state) == 1) else -1
+
+            proj_mat_indices[proj_i].push_back(feat_i)  # Store index of nonzero
+            proj_mat_weights[proj_i].push_back(weight)  # Store weight of nonzero
+        
+        # for i in range(n_non_zeros):
+        #     proj_i = rand_int(0, max_features, random_state)
+        #     feat_i = rand_int(0, n_features, random_state)
+        #     weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
     
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
                         SIZE_t* n_constant_features) nogil except -1:
@@ -447,15 +452,13 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             # current.feature = f
             # current.proj_vec = proj_mat[f]
 
-            weights = self.proj_mat_weights[f]
-            indices = self.proj_mat_indices[f]
-            current.feature = f
-            current.proj_vec_weights = weights
-            current.proj_vec_indices = indices
-
             # Projection vectors has no nonzeros
-            if weights.size() == 0:
+            if self.proj_mat_weights[f].empty():
                 continue
+
+            current.feature = f
+            current.proj_vec_weights = self.proj_mat_weights[f]
+            current.proj_vec_indices = self.proj_mat_indices[f]
 
             # Compute linear combination of features
             # for i in range(start, end):
@@ -465,8 +468,8 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
 
             for i in range(start, end):
                 Xf[i] = 0
-                for j in range(indices.size()):
-                    Xf[i] += self.X[samples[i], indices[j]] * weights[j]
+                for j in range(0, current.proj_vec_indices.size()):
+                    Xf[i] += self.X[samples[i], current.proj_vec_indices[j]] * current.proj_vec_weights[j]
 
             # Sort the samples
             sort(Xf + start, samples + start, end - start)
