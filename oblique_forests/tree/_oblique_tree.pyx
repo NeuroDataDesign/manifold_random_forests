@@ -252,6 +252,16 @@ cdef class ObliqueDepthFirstTreeBuilder(ObliqueTreeBuilder):
                                (split.improvement + EPSILON <
                                 min_impurity_decrease))
 
+                # =========================================================================
+                # 1. Dense proj_mat implementation
+                # =========================================================================
+                # node_id = tree._add_node(parent, is_left, is_leaf, split.feature,
+                #                          split.threshold, impurity, n_node_samples,
+                #                          weighted_n_node_samples, split.proj_vec)
+
+                # =========================================================================
+                # 2. LiL sparse proj_mat implementation
+                # =========================================================================
                 node_id = tree._add_node(parent, is_left, is_leaf, split.feature,
                                          split.threshold, impurity, n_node_samples,
                                          weighted_n_node_samples, 
@@ -417,6 +427,14 @@ cdef class ObliqueTree:
         self.value = NULL
         self.nodes = NULL
 
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
+        # self.proj_vecs = NULL
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         self.proj_vec_weights = vector[vector[DTYPE_t]](self.capacity)
         self.proj_vec_indices = vector[vector[SIZE_t]](self.capacity)
 
@@ -432,9 +450,17 @@ cdef class ObliqueTree:
         # for i in range(self.node_count):
         #     free(self.proj_vecs[i])
         # print("freed each projection vector")
-        
+
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # free(self.proj_vecs)
         # print("freed proj_vec array")
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
+        # NOTE: C++ vector clean-up is automatic
 
         free(self.nodes)
         # print("freed nodes")
@@ -454,9 +480,17 @@ cdef class ObliqueTree:
         d["nodes"] = self._get_node_ndarray()
         d["values"] = self._get_value_ndarray()
 
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # TODO: added but not sure if it works
         # cdef float[::1] proj_vecs_arr = <float [:self.proj_vecs.size()]> self.proj_vecs.data()
         # d['proj_vecs'] = np.asarray(<DTYPE_t[:,:]> proj_vecs_arr)
+        # d['proj_vecs'] = np.asarray(self.proj_vecs)
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         proj_vecs = np.zeros((self.node_count, self.n_features))
         for i in range(0, self.node_count):
             for j in range(0, self.proj_vec_weights[i].size()):
@@ -496,7 +530,14 @@ cdef class ObliqueTree:
         value = memcpy(self.value, (<np.ndarray> value_ndarray).data,
                        self.capacity * self.value_stride * sizeof(double))
 
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # TODO: pickling for proj_vecs
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         proj_vecs = d['proj_vecs']
         self.n_features = proj_vecs.shape[1]
         self.proj_vec_weights = vector[vector[DTYPE_t]](self.node_count)
@@ -539,8 +580,15 @@ cdef class ObliqueTree:
         safe_realloc(&self.nodes, capacity)
         safe_realloc(&self.value, capacity * self.value_stride)
 
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # resize projection vectors
         # safe_realloc(&self.proj_vecs, capacity) 
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         self.proj_vec_weights.resize(capacity)
         self.proj_vec_indices.resize(capacity)
 
@@ -557,6 +605,70 @@ cdef class ObliqueTree:
         self.capacity = capacity
         return 0
 
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    # cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
+    #                       SIZE_t feature, double threshold, double impurity,
+    #                       SIZE_t n_node_samples,
+    #                       double weighted_n_node_samples, DTYPE_t* proj_vec) nogil except -1:
+    #     """Add a node to the tree.
+    #     The new node registers itself as the child of its parent.
+    #     Returns (size_t)(-1) on error.
+    #     """
+    #     cdef SIZE_t node_id = self.node_count
+    #     cdef SIZE_t n_features = self.n_features
+
+    #     if node_id >= self.capacity:
+    #         if self._resize_c() != 0:
+    #             return SIZE_MAX
+
+    #     cdef ObliqueNode* node = &self.nodes[node_id]
+    #     #cdef DTYPE_t* projection = &self.proj_vecs[node_id]
+
+    #     node.impurity = impurity
+    #     node.n_node_samples = n_node_samples
+    #     node.weighted_n_node_samples = weighted_n_node_samples
+
+    #     if parent != _TREE_UNDEFINED:
+    #         if is_left:
+    #             self.nodes[parent].left_child = node_id
+    #         else:
+    #             self.nodes[parent].right_child = node_id
+
+    #     # allocate memory for projection vector for this node
+    #     self.proj_vecs[node_id] = NULL
+    #     safe_realloc(&self.proj_vecs[node_id], self.n_features)
+
+    #     if is_leaf:
+    #         node.left_child = _TREE_LEAF
+    #         node.right_child = _TREE_LEAF
+    #         node.feature = _TREE_UNDEFINED
+    #         node.threshold = _TREE_UNDEFINED
+    #         #node.proj_vec = NULL
+    #         # with gil:
+    #         #     print('Setting leaf...')
+    #     else:
+    #         # left_child and right_child will be set later
+    #         node.feature = feature
+    #         node.threshold = threshold
+
+    #         # Allocate memory for tree's proj_vec and make a deep copy
+    #         # self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
+    #         # with gil:
+    #         #     print('Allocating memory for proj_vecs')
+    #         for i in range(n_features):
+    #             self.proj_vecs[node_id][i] = proj_vec[i]
+    #             # with gil:
+    #             #     print('Set projection vector for ', node_id)
+
+    #     self.node_count += 1
+
+    #     return node_id
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
@@ -589,27 +701,16 @@ cdef class ObliqueTree:
             else:
                 self.nodes[parent].right_child = node_id
 
-        # allocate memory for projection vector for this node
-        # self.proj_vecs[node_id] = NULL
-        # safe_realloc(&self.proj_vecs[node_id], self.n_features)
-
         if is_leaf:
             node.left_child = _TREE_LEAF
             node.right_child = _TREE_LEAF
             node.feature = _TREE_UNDEFINED
             node.threshold = _TREE_UNDEFINED
-            #node.proj_vec = NULL
-            # with gil:
-            #     print('Setting leaf...')
         else:
             # left_child and right_child will be set later
             node.feature = feature
             node.threshold = threshold
 
-            # Allocate memory for tree's proj_vec and make a deep copy
-            # self.proj_vecs[node_id] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
-            # with gil:
-            #     print('Allocating memory for proj_vecs')
             self.proj_vec_weights[node_id] = proj_vec_weights
             self.proj_vec_indices[node_id] = proj_vec_indices
 
@@ -657,9 +758,18 @@ cdef class ObliqueTree:
         cdef SIZE_t i = 0
         cdef SIZE_t j = 0
         cdef DTYPE_t proj_feat = 0
+        
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # cdef DTYPE_t* proj_vec
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         cdef vector[DTYPE_t] proj_vec_weights
         cdef vector[SIZE_t] proj_vec_indices
+
         cdef SIZE_t node_id = 0
 
         with nogil:
@@ -674,6 +784,24 @@ cdef class ObliqueTree:
 
                     # compute projection of the data based on trained tree
                     proj_feat = 0
+
+                    # =========================================================================
+                    # 1. Dense proj_mat implementation
+                    # =========================================================================
+                    # proj_vec = self.proj_vecs[node_id]
+                    # for j in range(n_features):
+                    #     proj_feat += X_ndarray[i, j] * proj_vec[j]
+
+                    # if proj_feat <= node.threshold:
+                    #     node_id = node.left_child
+                    #     node = &self.nodes[node.left_child]
+                    # else:
+                    #     node_id = node.right_child
+                    #     node = &self.nodes[node.right_child]
+
+                    # =========================================================================
+                    # 2. LiL sparse proj_mat implementation
+                    # =========================================================================
                     proj_vec_weights = self.proj_vec_weights[node_id]
                     proj_vec_indices = self.proj_vec_indices[node_id]
                     for j in range(proj_vec_indices.size()):
@@ -685,7 +813,6 @@ cdef class ObliqueTree:
                     else:
                         node_id = node.right_child
                         node = &self.nodes[node.right_child]
-                    
 
                 out_ptr[i] = <SIZE_t>(node - self.nodes)  # node offset
 
@@ -803,7 +930,14 @@ cdef class ObliqueTree:
         cdef SIZE_t i = 0
         cdef SIZE_t j = 0
         cdef DTYPE_t proj_feat = 0
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # cdef DTYPE_t* proj_vec
+
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         cdef vector[DTYPE_t] proj_vec_weights
         cdef vector[SIZE_t] proj_vec_indices
 
@@ -827,6 +961,24 @@ cdef class ObliqueTree:
                     #     node = &self.nodes[node.right_child]
 
                     # compute projection of the data based on trained tree
+                    # =========================================================================
+                    # 1. Dense proj_mat implementation
+                    # =========================================================================
+                    # proj_feat = 0
+                    # proj_vec = self.proj_vecs[node_id]
+                    # for j in range(n_features):
+                    #     proj_feat += X_ndarray[i, j] * proj_vec[j]
+
+                    # if proj_feat <= node.threshold:
+                    #     node_id = node.left_child
+                    #     node = &self.nodes[node.left_child]
+                    # else:
+                    #     node_id = node.right_child
+                    #     node = &self.nodes[node.right_child]
+
+                    # =========================================================================
+                    # 2. LiL sparse proj_mat implementation
+                    # =========================================================================
                     proj_feat = 0
                     proj_vec_weights = self.proj_vec_weights[node_id]
                     proj_vec_indices = self.proj_vec_indices[node_id]
@@ -839,7 +991,6 @@ cdef class ObliqueTree:
                     else:
                         node_id = node.right_child
                         node = &self.nodes[node.right_child]
-                    
 
                 # Add the leave node
                 indices_ptr[indptr_ptr[i + 1]] = <SIZE_t>(node - self.nodes)

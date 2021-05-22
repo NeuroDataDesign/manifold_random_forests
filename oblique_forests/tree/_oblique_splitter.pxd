@@ -43,9 +43,16 @@ cdef struct ObliqueSplitRecord:
     double impurity_left   # Impurity of the left split.
     double impurity_right  # Impurity of the right split.
 
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
     # DTYPE_t* proj_vec      # Projection vector to apply to data sample. It 
     #                        # can be weighted, where the weights correspond to 
     #                        # a different basis.
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     vector[DTYPE_t] proj_vec_weights
     vector[SIZE_t] proj_vec_indices
 
@@ -70,8 +77,18 @@ cdef class BaseObliqueSplitter:
 
     # SPORF extra parameters
     cdef public double feature_combinations  # Number of features to combine
-    cdef vector[vector[DTYPE_t]] proj_mat_weights        # nonzero weights of sparse proj_mat matrix
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    # cdef DTYPE_t** proj_mat
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
+    cdef vector[vector[DTYPE_t]] proj_mat_weights       # nonzero weights of sparse proj_mat matrix
     cdef vector[vector[SIZE_t]] proj_mat_indices        # nonzero indices of sparse proj_mat matrix
+
+
     #cdef SIZE_t proj_dims                # size of the projected dimension
     cdef SIZE_t n_non_zeros              # density (i.e. number of non-zeros) of the projection vector
 
@@ -128,12 +145,19 @@ cdef class BaseObliqueSplitter:
 
     #cdef double impurity(self, double[:] y) nogil
 
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
     # cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil 
+
+    # XXX: This version of sample_proj_mat was never fully implemented
     # cdef void sample_proj_mat(self, 
     #                           DTYPE_t* proj_mat_weights, 
     #                           DTYPE_t* proj_mat_indices) nogil 
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     cdef void sample_proj_mat(self, 
-                              vector[vector[DTYPE_t]]& proj_vec_weights,
-                              vector[vector[SIZE_t]]& proj_vec_indices) nogil 
-
-
+                              vector[vector[DTYPE_t]]& proj_mat_weights,
+                              vector[vector[SIZE_t]]& proj_mat_indices) nogil 

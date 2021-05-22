@@ -69,11 +69,30 @@ cdef class ObliqueTree:
     cdef double* value                   # (capacity, n_outputs, max_n_classes) array of values
     cdef SIZE_t value_stride             # = n_outputs * max_n_classes
 
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
     # cdef DTYPE_t** proj_vecs             # (capacity, n_features) array of projection vectors
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     cdef vector[vector[DTYPE_t]] proj_vec_weights # (capacity, n_features) array of projection vectors
     cdef vector[vector[SIZE_t]] proj_vec_indices # (capacity, n_features) array of projection vectors
 
     # Methods
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    # cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
+    #                       SIZE_t feature, double threshold, double impurity,
+    #                       SIZE_t n_node_samples,
+    #                       double weighted_n_samples, 
+    #                       DTYPE_t* proj_vec) nogil except -1
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,

@@ -40,6 +40,22 @@ cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
 # in SparseSplitter
 # cdef DTYPE_t EXTRACT_NNZ_SWITCH = 0.1
 
+
+# =========================================================================
+# 1. Dense proj_mat implementation
+# =========================================================================
+# cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
+#     self.impurity_left = INFINITY
+#     self.impurity_right = INFINITY
+#     self.pos = start_pos
+#     self.feature = 0
+#     self.threshold = 0.
+#     self.improvement = -INFINITY
+#     self.proj_vec = NULL
+
+# =========================================================================
+# 2. LiL sparse proj_mat implementation
+# =========================================================================
 cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.impurity_left = INFINITY
     self.impurity_right = INFINITY
@@ -47,8 +63,7 @@ cdef inline void _init_split(ObliqueSplitRecord* self, SIZE_t start_pos) nogil:
     self.feature = 0
     self.threshold = 0.
     self.improvement = -INFINITY
-    # XXX: Not sure whether to set proj_vec to some default vector
-    # self.proj_vec = NULL
+
 
 cdef class BaseObliqueSplitter:
     """Abstract oblique splitter class.
@@ -100,10 +115,18 @@ cdef class BaseObliqueSplitter:
 
         # SPORF parameters
         self.feature_combinations = feature_combinations
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
+        # self.proj_mat = NULL # max_features x n_features matrix. There are max_features vectors.
 
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         # Sparse max_features x n_features projection matrix
         self.proj_mat_weights = vector[vector[DTYPE_t]](self.max_features)
         self.proj_mat_indices = vector[vector[SIZE_t]](self.max_features)
+
         self.n_non_zeros = max(int(self.max_features * self.feature_combinations), 1)
         
     def __dealloc__(self):
@@ -120,21 +143,21 @@ cdef class BaseObliqueSplitter:
 
         free(self.feature_values)
         # print("freed feature_values")
-        
-        # NOTE: C++ vectors handle their own clean-up
+
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
         # if self.proj_mat:
         #     for i in range(self.max_features):
         #         free(self.proj_mat[i])
         #     # print("freed proj_mat vectors")
-
         # free(self.proj_mat)
         # # print("freed proj_mat")
 
-        # if self.proj_mat_weights:
-        #     free(self.proj_mat_weights)
-
-        # if self.proj_mat_indices:
-        #     free(self.proj_mat_indices)
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
+        # NOTE: C++ vectors handle their own clean-up
 
     def __getstate__(self):
         return {}
@@ -248,8 +271,11 @@ cdef class BaseObliqueSplitter:
 
         weighted_n_node_samples[0] = self.criterion.weighted_n_node_samples
         
-        # TODO: throw memory error if this fails!
-        # Reset projection matrix to 0
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
+        # # TODO: throw memory error if this fails!
+        # # Reset projection matrix to 0
         # for i in range(self.max_features):
         #     # I dont think we need to reallocate the memory. Just reset to 0.
         #     #safe_realloc(&self.proj_mat[i], self.n_features)
@@ -257,16 +283,13 @@ cdef class BaseObliqueSplitter:
         #     for j in range(self.n_features):
         #         self.proj_mat[i][j] = 0
 
-        # for i in range(self.n_non_zeros):
-        #     self.proj_mat_weights[i] = 0
-        #     self.proj_mat_indices[i] = 0
-
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
         # Clear all projection vectors
         for i in range(self.max_features):
             self.proj_mat_weights[i].clear()
             self.proj_mat_indices[i].clear()
-        
-        return 0
 
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
                         SIZE_t* n_constant_features) nogil except -1:
@@ -288,6 +311,20 @@ cdef class BaseObliqueSplitter:
         """Return the impurity of the current node."""
         return self.criterion.node_impurity()
 
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    # cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
+    #     """ Sample the projection vector. 
+        
+    #     This is a placeholder method. 
+    #     """
+
+    #     pass
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     cdef void sample_proj_mat(self, 
                               vector[vector[DTYPE_t]]& proj_mat_weights, 
                               vector[vector[SIZE_t]]& proj_mat_indices) nogil:
@@ -333,14 +370,13 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         # Call parent init
         BaseObliqueSplitter.init(self, X, y, sample_weight)
 
-        self.X = X
-        # TODO: throw memory error if this fails!
+        # =========================================================================
+        # 1. Dense proj_mat implementation
+        # =========================================================================
+        # self.X = X
+        # # TODO: throw memory error if this fails!
         # self.proj_mat = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
-        # safe_realloc(&self.proj_mat_weights, self.n_non_zeros)
-        # safe_realloc(&self.proj_mat_indices, self.n_non_zeros)
 
-
-        # NOTE: No need to set to zero anymore, we just have cleared/empty vectors instead
         # cdef SIZE_t i, j
         # for i in range(self.max_features):
         #     self.proj_mat[i] = <DTYPE_t*> malloc(self.n_features * (sizeof(DTYPE_t)))
@@ -348,7 +384,11 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         #     for j in range(self.n_features):
         #         self.proj_mat[i][j] = 0
 
-        return 0
+        # =========================================================================
+        # 2. LiL sparse proj_mat implementation
+        # =========================================================================
+        # NOTE: No need to set to zero anymore, we just have cleared/empty vectors instead
+
 
 cdef class ObliqueSplitter(DenseObliqueSplitter):
     def __reduce__(self):
@@ -360,6 +400,34 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                                self.feature_combinations,
                                self.random_state), self.__getstate__())
 
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    # cdef void sample_proj_mat(self, DTYPE_t** proj_mat) nogil:
+    #     """
+    #     SPORF Projection matrix.
+    #     Randomly sample features to put in randomly sampled projection vectors
+    #     weight = 1 or -1 with probability 0.5 
+    #     """
+ 
+    #     cdef SIZE_t n_features = self.n_features
+    #     cdef SIZE_t max_features = self.max_features
+    #     cdef SIZE_t n_non_zeros = self.n_non_zeros
+    #     cdef UINT32_t* random_state = &self.rand_r_state
+
+    #     cdef int i, feat_i, proj_i
+
+    #     for i in range(0, n_non_zeros):
+
+    #         proj_i = rand_int(0, max_features, random_state)
+    #         feat_i = rand_int(0, n_features, random_state)
+    #         weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
+
+    #         proj_mat[proj_i][feat_i] = weight
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     # NOTE: vectors are passed by value, so & is needed to pass by reference
     cdef void sample_proj_mat(self, 
                               vector[vector[DTYPE_t]]& proj_mat_weights,
@@ -377,32 +445,163 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
 
         cdef int i, feat_i, proj_i
 
-        for i in range(0, n_non_zeros):
+        for _ in range(n_non_zeros):
 
             proj_i = rand_int(0, max_features, random_state)
             feat_i = rand_int(0, n_features, random_state)
             weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
 
-            # proj_mat[proj_i][feat_i] = weight
-
-            # proj_mat_indices[i] = rand_int(0, max_features * n_features, random_state)
-            # proj_mat_weights[i] = 1 if (rand_int(0, 2, random_state) == 1) else -1
-
             proj_mat_indices[proj_i].push_back(feat_i)  # Store index of nonzero
             proj_mat_weights[proj_i].push_back(weight)  # Store weight of nonzero
+
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    # cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
+    #                     SIZE_t* n_constant_features) nogil except -1:
+    #     """Find the best split on node samples[start:end]
+    #     Returns -1 in case of failure to allocate memory (and raise MemoryError)
+    #     or 0 otherwise.
+    #     """
         
-        # for i in range(n_non_zeros):
-        #     proj_i = rand_int(0, max_features, random_state)
-        #     feat_i = rand_int(0, n_features, random_state)
-        #     weight = 1 if (rand_int(0, 2, random_state) == 1) else -1
-    
+    #     cdef SIZE_t* samples = self.samples
+    #     cdef SIZE_t start = self.start
+    #     cdef SIZE_t end = self.end
+
+    #     cdef SIZE_t* features = self.features
+    #     cdef SIZE_t* constant_features = self.constant_features
+    #     cdef SIZE_t n_features = self.n_features
+
+    #     cdef DTYPE_t* Xf = self.feature_values
+    #     cdef SIZE_t max_features = self.max_features
+    #     cdef SIZE_t min_samples_leaf = self.min_samples_leaf
+    #     cdef double min_weight_leaf = self.min_weight_leaf
+    #     cdef UINT32_t* random_state = &self.rand_r_state
+
+    #     cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
+    #     cdef SIZE_t* sample_mask = self.sample_mask
+
+    #     # keep track of split record for current node and the best split
+    #     # found among the sampled projection vectors
+    #     cdef ObliqueSplitRecord best, current
+
+    #     cdef double current_proxy_improvement = -INFINITY
+    #     cdef double best_proxy_improvement = -INFINITY
+
+    #     cdef SIZE_t f
+    #     cdef SIZE_t p
+    #     cdef SIZE_t i
+    #     cdef SIZE_t j
+    #     cdef SIZE_t partition_end
+    #     cdef DTYPE_t temp_d
+
+    #     # instantiate the projection matrix and a 
+    #     # point for projection vectors to pass the selected projection vector
+    #     cdef DTYPE_t** proj_mat = self.proj_mat
+    #     cdef DTYPE_t* proj_vec
+
+    #     # instantiate the split records
+    #     _init_split(&best, end)
+
+    #     # Sample the projection matrix
+    #     self.sample_proj_mat(proj_mat)
+        
+    #     # For every vector in the projection matrix
+    #     for f in range(max_features):
+    #         proj_vec = proj_mat[f]
+    #         current.feature = f
+    #         current.proj_vec = proj_mat[f]
+
+    #         # Compute linear combination of features
+    #         for i in range(start, end):
+    #             Xf[i] = 0
+    #             for j in range(n_features):
+    #                 Xf[i] += self.X[samples[i], j] * proj_vec[j]
+
+    #         # Sort the samples
+    #         sort(Xf + start, samples + start, end - start)
+
+    #         # Evaluate all splits
+    #         self.criterion.reset()
+    #         for p in range(start, end-1):
+
+    #             # invalid split
+    #             if (Xf[p + 1] <= Xf[p] + FEATURE_THRESHOLD):
+    #                 continue
+
+    #             current.pos = p
+
+    #             # reject if min_samples_leaf not guaranteed
+    #             if ((current.pos - start) < min_samples_leaf or 
+    #                 (end - current.pos) < min_samples_leaf):
+
+    #                 continue
+
+    #             self.criterion.update(current.pos)
+
+    #             # reject if min_weight_leaf not satisfied
+    #             if (self.criterion.weighted_n_left < min_weight_leaf or
+    #                 self.criterion.weighted_n_right < min_weight_leaf):
+
+    #                 continue
+
+    #             current_proxy_improvement = self.criterion.proxy_impurity_improvement()
+                
+    #             if current_proxy_improvement > best_proxy_improvement:
+    #                 best_proxy_improvement = current_proxy_improvement
+
+    #                 current.threshold = Xf[p - 1] / 2.0 + Xf[p] / 2.0
+
+    #                 if (current.threshold == Xf[p] or
+    #                     current.threshold == INFINITY or
+    #                     current.threshold == -INFINITY):
+                        
+    #                     current.threshold = Xf[p-1]
+
+    #                 best = current
+        
+    #     # Reorganize into samples[start:best.pos] + samples[best.pos:end]
+    #     if best.pos < end:
+    #         partition_end = end
+    #         p = start
+
+    #         while p < partition_end:
+                
+    #             # Account for projection vector
+    #             temp_d = 0
+    #             for j in range(n_features):
+    #                 temp_d += self.X[samples[p], j] * best.proj_vec[j]
+
+    #             if temp_d <= best.threshold:
+    #                 p += 1
+
+    #             else:
+    #                 partition_end -= 1
+    #                 samples[p], samples[partition_end] = samples[partition_end], samples[p]
+
+    #         self.criterion.reset()
+    #         self.criterion.update(best.pos)
+    #         self.criterion.children_impurity(&best.impurity_left,
+    #                                          &best.impurity_right)
+    #         best.improvement = self.criterion.impurity_improvement(
+    #             impurity, best.impurity_left, best.impurity_right)
+
+    #     # Skipping over constant features part cause its irrelevant
+
+    #     # Return values
+    #     split[0] = best
+    #     return 0
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     cdef int node_split(self, double impurity, ObliqueSplitRecord* split,
                         SIZE_t* n_constant_features) nogil except -1:
         """Find the best split on node samples[start:end]
 
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
-        """   
+        """
         
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t start = self.start
@@ -435,11 +634,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef SIZE_t partition_end
         cdef DTYPE_t temp_d
 
-        # instantiate the projection matrix and a 
-        # point for projection vectors to pass the selected projection vector
-        # cdef DTYPE_t** proj_mat = self.proj_mat
-        # cdef DTYPE_t* proj_vec
-
         # instantiate the split records
         _init_split(&best, end)
 
@@ -448,11 +642,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         
         # For every vector in the projection matrix
         for f in range(max_features):
-            # proj_vec = proj_mat[f]
-            # current.feature = f
-            # current.proj_vec = proj_mat[f]
-
-            # Projection vectors has no nonzeros
+            # Projection vector has no nonzeros
             if self.proj_mat_weights[f].empty():
                 continue
 
@@ -461,11 +651,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             current.proj_vec_indices = self.proj_mat_indices[f]
 
             # Compute linear combination of features
-            # for i in range(start, end):
-            #     Xf[i] = 0
-            #     for j in range(0, n_features):
-            #         Xf[i] += self.X[samples[i], j] * proj_vec[j]
-
             for i in range(start, end):
                 Xf[i] = 0
                 for j in range(0, current.proj_vec_indices.size()):
@@ -530,10 +715,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                     partition_end -= 1
                     samples[p], samples[partition_end] = samples[partition_end], samples[p]
 
-            # self.criterion.reset()
-            # self.criterion.update(best.pos)
-            # best.improvement = self.criterion.impurity_improvement(impurity)
-            # self.criterion.children_impurity(&best.impurity_left, &best.impurity_right)
             self.criterion.reset()
             self.criterion.update(best.pos)
             self.criterion.children_impurity(&best.impurity_left,
@@ -556,7 +737,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         split[0] = best
         # n_constant_features[0] = n_total_constants
         return 0
-
 
 
 # Sort n-element arrays pointed to by Xf and samples, simultaneously,
