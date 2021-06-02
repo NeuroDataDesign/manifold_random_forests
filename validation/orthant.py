@@ -21,6 +21,7 @@ def load_data(n):
     return X_train, y_train, X_test, y_test
 
 def test_rf(n, reps, n_estimators):
+    from sklearn.ensemble import RandomForestClassifier
 
     preds = np.zeros((reps, 10000))
     acc = np.zeros(reps)
@@ -28,9 +29,9 @@ def test_rf(n, reps, n_estimators):
 
         X_train, y_train, X_test, y_test = load_data(n)
 
-        clf = rfc(n_estimators=n_estimators, 
-                  projection_matrix="Base")
-
+        # clf = rfc(n_estimators=n_estimators, 
+        #           projection_matrix="Base")
+        clf = RandomForestClassifier(n_estimators=n_estimators)
         clf.fit(X_train, y_train)
         
         preds[i] = clf.predict(X_test)
@@ -76,7 +77,7 @@ def test_of(n, reps, n_estimators, feature_combinations, max_features):
 
         # Profile fitting
         import yep
-        yep.start(f'cysporf2_fit_orthant{n}.prof')
+        yep.start(f'cysporf_fit_orthant{n}.prof')
         clf.fit(X_train, y_train)
         yep.stop()
 
@@ -94,9 +95,9 @@ def main():
     feature_combinations = 2
     max_features = 1.0
 
-    #acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
+    # acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
     acc = test_of(n, reps, n_estimators, feature_combinations, max_features)
-    #acc = test_rf(n, reps, n_estimators)
+    # acc = test_rf(n, reps, n_estimators)
     print(acc)
 
 if __name__ == "__main__":
