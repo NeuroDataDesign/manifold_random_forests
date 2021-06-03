@@ -119,6 +119,7 @@ cdef class BaseObliqueSplitter:
         free(self.feature_values)
         # print("freed feature_values")
 
+        cdef SIZE_t i
         if self.proj_mat:
             for i in range(self.max_features):
                 free(self.proj_mat[i])
@@ -240,6 +241,7 @@ cdef class BaseObliqueSplitter:
         
         # TODO: throw memory error if this fails!
         # Reset projection matrix to 0
+        cdef SIZE_t i
         for i in range(self.max_features):
             # I dont think we need to reallocate the memory. Just reset to 0.
             #safe_realloc(&self.proj_mat[i], self.n_features)
@@ -310,7 +312,7 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         self.X = X
         self.proj_mat = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
 
-        cdef SIZE_t i, j
+        cdef SIZE_t i
         for i in range(self.max_features):
             self.proj_mat[i] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
             memset(self.proj_mat[i], 0, self.n_features * sizeof(DTYPE_t))
@@ -338,10 +340,10 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef SIZE_t n_non_zeros = self.n_non_zeros
         cdef UINT32_t* random_state = &self.rand_r_state
 
-        cdef int feat_i, proj_i
+        cdef int i, feat_i, proj_i
         cdef DTYPE_t weight
 
-        for _ in range(0, n_non_zeros):
+        for i in range(0, n_non_zeros):
 
             proj_i = rand_int(0, max_features, random_state)
             feat_i = rand_int(0, n_features, random_state)
@@ -356,6 +358,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         or 0 otherwise.
         """
         
+        cdef SIZE_t n_samples = self.n_samples
         cdef SIZE_t* samples = self.samples
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
@@ -380,11 +383,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef double current_proxy_improvement = -INFINITY
         cdef double best_proxy_improvement = -INFINITY
 
-        cdef SIZE_t f
-        cdef SIZE_t p
-        cdef SIZE_t i
-        cdef SIZE_t j
-        cdef SIZE_t partition_end
+        cdef SIZE_t f, i, j, p, partition_end
         cdef DTYPE_t temp_d
 
         # instantiate the projection matrix and a 
@@ -405,8 +404,8 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
             current.proj_vec = proj_mat[f]
 
             # Compute linear combination of features
+            memset(Xf + start, 0, (end - start) * sizeof(DTYPE_t))
             for i in range(start, end):
-                Xf[i] = 0
                 for j in range(n_features):
                     Xf[i] += self.X[samples[i], j] * proj_vec[j]
 

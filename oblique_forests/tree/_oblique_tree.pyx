@@ -425,6 +425,7 @@ cdef class ObliqueTree:
         
         # Deallocate memory for all proj_vecs
         # print(self.node_count)
+        cdef SIZE_t i
         for i in range(self.node_count):
             if self.proj_vecs[i] != NULL:
                 free(self.proj_vecs[i])
@@ -581,10 +582,6 @@ cdef class ObliqueTree:
             #     print('Allocating memory for proj_vecs')
             self.proj_vecs[node_id] = <DTYPE_t*> malloc(n_features * sizeof(DTYPE_t))
             memcpy(self.proj_vecs[node_id], proj_vec, n_features * sizeof(DTYPE_t))
-            # for i in range(n_features):
-            #     self.proj_vecs[node_id][i] = proj_vec[i]
-                # with gil:
-                #     print('Set projection vector for ', node_id)
 
         self.node_count += 1
 
