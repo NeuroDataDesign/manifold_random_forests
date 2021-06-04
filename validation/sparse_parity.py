@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sklearn.ensemble import RandomForestClassifier as RF
 from oblique_forests.sporf import ObliqueForestClassifier as SPORF
-from oblique_forests.sporf import PyObliqueForestClassifier as PySPORF
+from oblique_forests.sporf import PythonObliqueForestClassifier as PySPORF
 
 # Change the rerf import as needed:
 sys.path.append("/Users/ChesterHuynh/OneDrive - Johns Hopkins/research/seeg localization/SPORF/Python/")
@@ -36,7 +36,10 @@ def test_rf(n, reps, n_estimators):
 
         clf = RF(n_estimators=n_estimators)
 
+        import yep
+        yep.start(f'rf_fit_sparse_parity{n}.prof')
         clf.fit(X_train, y_train)
+        yep.stop()
         
         preds[i] = clf.predict(X_test)
         acc[i] = np.sum(preds[i] == y_test) / len(y_test)
@@ -98,7 +101,10 @@ def test_sporf(n, reps, n_estimators, feature_combinations, max_features):
                     max_features=max_features,
                     n_jobs=-1)
 
+        import yep
+        yep.start(f'cysporf_fit_sparse_parity{n}.prof')
         clf.fit(X_train, y_train)
+        yep.stop()
         preds[i] = clf.predict(X_test)
         acc[i] = np.sum(preds[i] == y_test) / len(y_test)
 
@@ -125,14 +131,14 @@ def main():
         acc = test_rf(n, reps, n_estimators)
         print(acc)
 
-        acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
-        print(acc)
+        # acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
+        # print(acc)
 
         acc = test_sporf(n, reps, n_estimators, feature_combinations, max_features)
         print(acc)
 
-        acc = test_pysporf(n, reps, n_estimators, feature_combinations, max_features_pysporf)
-        print(acc)
+        # acc = test_pysporf(n, reps, n_estimators, feature_combinations, max_features_pysporf)
+        # print(acc)
 
 if __name__ == "__main__":
     main()

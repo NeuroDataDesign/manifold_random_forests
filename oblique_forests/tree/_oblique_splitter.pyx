@@ -17,7 +17,6 @@ from libc.stdlib cimport qsort
 from libc.string cimport memcpy
 from libc.string cimport memset
 from libc.stdio cimport printf
-from libcpp.vector cimport vector
 
 # allow sparse operations
 # from scipy.sparse import csc_matrixfrom ._criterion cimport Criterion
@@ -425,7 +424,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                 # reject if min_samples_leaf not guaranteed
                 if ((current.pos - start) < min_samples_leaf or 
                     (end - current.pos) < min_samples_leaf):
-
                     continue
 
                 self.criterion.update(current.pos)
@@ -433,7 +431,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                 # reject if min_weight_leaf not satisfied
                 if (self.criterion.weighted_n_left < min_weight_leaf or
                     self.criterion.weighted_n_right < min_weight_leaf):
-
                     continue
 
                 current_proxy_improvement = self.criterion.proxy_impurity_improvement()
@@ -446,7 +443,6 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                     if (current.threshold == Xf[p] or
                         current.threshold == INFINITY or
                         current.threshold == -INFINITY):
-                        
                         current.threshold = Xf[p-1]
 
                     best = current
