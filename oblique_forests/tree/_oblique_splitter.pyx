@@ -1,7 +1,6 @@
 #cython: language_level=3
 #cython: boundscheck=False
 #cython: wraparound=False
-#cython: profile=True
 
 cimport cython
 import numpy as np
@@ -309,12 +308,15 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         BaseObliqueSplitter.init(self, X, y, sample_weight)
 
         self.X = X
-        self.proj_mat = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
 
         cdef SIZE_t i
-        for i in range(self.max_features):
-            self.proj_mat[i] = <DTYPE_t*> malloc(self.n_features * sizeof(DTYPE_t))
-            memset(self.proj_mat[i], 0, self.n_features * sizeof(DTYPE_t))
+        cdef SIZE_t n_features = self.n_features
+        cdef SIZE_t max_features = self.max_features
+
+        self.proj_mat = <DTYPE_t**> malloc(max_features * sizeof(DTYPE_t*))
+        for i in range(max_features):
+            self.proj_mat[i] = <DTYPE_t*> malloc(n_features * sizeof(DTYPE_t))
+            memset(self.proj_mat[i], 0, n_features * sizeof(DTYPE_t))
 
 
 cdef class ObliqueSplitter(DenseObliqueSplitter):
