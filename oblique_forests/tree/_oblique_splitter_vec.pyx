@@ -24,6 +24,7 @@ from libcpp.vector cimport vector
 # from scipy.sparse import csc_matrixfrom ._criterion cimport Criterion
 # from scipy.sparse import csc_matrix
 
+from cython.operator cimport dereference as deref
 from cython.parallel import prange
 
 from ._utils cimport log
@@ -279,9 +280,6 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
     cdef SIZE_t X_idx_sorted_stride
     cdef SIZE_t n_total_samples
     cdef SIZE_t* sample_mask
-    # =========================================================================
-    # 2. LiL sparse proj_mat implementation
-    # =========================================================================
     # cdef DTYPE_t** X_proj
 
     def __cinit__(self, Criterion criterion, SIZE_t max_features,
@@ -293,10 +291,6 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         self.sample_mask = NULL
         self.max_features = max_features # number of proj_vecs
         self.feature_combinations = feature_combinations
-
-        # =========================================================================
-        # 2. LiL sparse proj_mat implementation
-        # =========================================================================
         # self.X_proj = NULL
 
     cdef int init(self,
@@ -314,11 +308,6 @@ cdef class DenseObliqueSplitter(BaseObliqueSplitter):
         BaseObliqueSplitter.init(self, X, y, sample_weight)
 
         self.X = X
-        
-        # =========================================================================
-        # 2. LiL sparse proj_mat implementation
-        # =========================================================================
-        # # NOTE: No need to set to zero anymore, we just have cleared/empty vectors instead
         # self.X_proj = <DTYPE_t**> malloc(self.max_features * sizeof(DTYPE_t*))
 
         # cdef SIZE_t i, j
@@ -352,9 +341,10 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef SIZE_t n_non_zeros = self.n_non_zeros
         cdef UINT32_t* random_state = &self.rand_r_state
 
-        cdef int feat_i, proj_i
+        cdef int i, feat_i, proj_i
+        cdef DTYPE_t weight
 
-        for _ in range(n_non_zeros):
+        for i in range(n_non_zeros):
 
             proj_i = rand_int(0, max_features, random_state)
             feat_i = rand_int(0, n_features, random_state)
@@ -395,10 +385,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         cdef double current_proxy_improvement = -INFINITY
         cdef double best_proxy_improvement = -INFINITY
 
-        cdef SIZE_t f
-        cdef SIZE_t p
-        cdef SIZE_t i
-        cdef SIZE_t j
+        cdef SIZE_t f, p, i, j
         cdef SIZE_t partition_end
         cdef DTYPE_t temp_d
 
@@ -408,9 +395,9 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
         # Sample the projection matrix
         self.sample_proj_mat(self.proj_mat_weights, self.proj_mat_indices)
 
-        cdef DTYPE_t** X_proj = self.X_proj
-        cdef vector[DTYPE_t] proj_vec_weights
-        cdef vector[SIZE_t] proj_vec_indices
+        # cdef DTYPE_t** X_proj = self.X_proj
+        cdef vector[DTYPE_t]* proj_vec_weights
+        cdef vector[SIZE_t]* proj_vec_indices
 
         # for f in range(max_features):
         #     if self.proj_mat_weights[f].empty():
@@ -432,14 +419,14 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                 continue
 
             current.feature = f
-            current.proj_vec_weights = self.proj_mat_weights[f]
-            current.proj_vec_indices = self.proj_mat_indices[f]
+            current.proj_vec_weights = &self.proj_mat_weights[f]
+            current.proj_vec_indices = &self.proj_mat_indices[f]
 
             # Compute linear combination of features
+            memset(Xf + start, 0, (end - start) * sizeof(DTYPE_t))
             for i in range(start, end):
-                Xf[i] = 0
                 for j in range(0, current.proj_vec_indices.size()):
-                    Xf[i] += self.X[samples[i], current.proj_vec_indices[j]] * current.proj_vec_weights[j]
+                    Xf[i] += self.X[samples[i], deref(current.proj_vec_indices)[j]] * deref(current.proj_vec_weights)[j]
             # Xf = X_proj[f]
 
             # Sort the samples
@@ -492,7 +479,7 @@ cdef class ObliqueSplitter(DenseObliqueSplitter):
                 # Account for projection vector
                 temp_d = 0
                 for j in range(best.proj_vec_indices.size()):
-                    temp_d += self.X[samples[p], best.proj_vec_indices[j]] * best.proj_vec_weights[j]
+                    temp_d += self.X[samples[p], deref(best.proj_vec_indices)[j]] * deref(best.proj_vec_weights)[j]
 
                 if temp_d <= best.threshold:
                     p += 1

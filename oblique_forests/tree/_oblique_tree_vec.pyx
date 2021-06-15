@@ -32,6 +32,8 @@ from scipy.sparse import issparse
 from scipy.sparse import csc_matrix
 from scipy.sparse import csr_matrix
 
+from cython.operator cimport dereference as deref
+
 # from ._tree cimport TreeBuilder
 
 from ._utils cimport Stack
@@ -544,8 +546,8 @@ cdef class ObliqueTree:
                           SIZE_t feature, double threshold, double impurity,
                           SIZE_t n_node_samples,
                           double weighted_n_node_samples, 
-                          vector[DTYPE_t]& proj_vec_weights,
-                          vector[SIZE_t]& proj_vec_indices) nogil except -1:
+                          vector[DTYPE_t]* proj_vec_weights,
+                          vector[SIZE_t]* proj_vec_indices) nogil except -1:
         """Add a node to the tree.
 
         The new node registers itself as the child of its parent.
@@ -582,8 +584,8 @@ cdef class ObliqueTree:
             node.feature = feature
             node.threshold = threshold
 
-            self.proj_vec_weights[node_id] = proj_vec_weights
-            self.proj_vec_indices[node_id] = proj_vec_indices
+            self.proj_vec_weights[node_id] = deref(proj_vec_weights)
+            self.proj_vec_indices[node_id] = deref(proj_vec_indices)
 
         self.node_count += 1
 

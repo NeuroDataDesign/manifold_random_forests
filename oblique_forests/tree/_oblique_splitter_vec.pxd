@@ -43,8 +43,8 @@ cdef struct ObliqueSplitRecord:
     double impurity_left   # Impurity of the left split.
     double impurity_right  # Impurity of the right split.
 
-    vector[DTYPE_t] proj_vec_weights
-    vector[SIZE_t] proj_vec_indices
+    vector[DTYPE_t]* proj_vec_weights
+    vector[SIZE_t]* proj_vec_indices
 
     # NOTE: differs from SplitInfo inside `oblique_base.py`
     # TODO:

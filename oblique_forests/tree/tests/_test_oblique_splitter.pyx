@@ -121,6 +121,17 @@ def test_sample_proj_mat():
                                                         min_samples_leaf, min_weight_leaf, 
                                                         feature_combinations, random_state)
     splitter.init(X, y, null_sample_weight)
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    assert all([splitter.proj_mat[i][j] == 0 
+                for j in range(n_features) 
+                for i in range(max_features)])
+
+    splitter.sample_proj_mat(splitter.proj_mat)
+    assert any([splitter.proj_mat[i][j] != 0 
+                for j in range(n_features) 
+                for i in range(max_features)])
 
     # =========================================================================
     # 2. LiL sparse proj_mat implementation
@@ -177,9 +188,16 @@ def test_node_reset():
     assert weighted_n_node_samples == n_samples
 
     # Validate node resets proj_mat
-    # # =========================================================================
-    # # 2. LiL sparse proj_mat implementation
-    # # =========================================================================
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    assert all([splitter.proj_mat[i][j] == 0 
+                for j in range(n_features) 
+                for i in range(max_features)])
+
+    # =========================================================================
+    # 2. LiL sparse proj_mat implementation
+    # =========================================================================
     # assert all([splitter.proj_mat_weights[i].size() == 0 
     #             for i in range(splitter.proj_mat_weights.size())])
     # assert all([splitter.proj_mat_indices[i].size() == 0 
@@ -246,6 +264,13 @@ def test_node_split():
     assert 0 <= split.impurity_right <= 1
 
     # Validate split proj_vec matches a vector in splitter.proj_mat
+    # =========================================================================
+    # 1. Dense proj_mat implementation
+    # =========================================================================
+    assert split.proj_vec != NULL
+    assert all([split.proj_vec[i] == splitter.proj_mat[split.feature][i] 
+                for i in range(n_features)])
+
     # =========================================================================
     # 2. LiL sparse proj_mat implementation
     # =========================================================================

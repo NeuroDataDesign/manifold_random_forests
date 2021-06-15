@@ -4,7 +4,7 @@ import inspect
 import sys
 
 
-cython_test_modules = ["_test_splitter"]
+cython_test_modules = ["_test_oblique_splitter"]
 
 def cytest(func):
     """
