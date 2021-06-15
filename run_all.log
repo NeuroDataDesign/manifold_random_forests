@@ -1,0 +1,159 @@
+2021-06-15 13:52:18,932:INFO:mode=CREATE
+2021-06-15 13:52:18,932:INFO:cv=10
+2021-06-15 13:52:18,932:INFO:n_estimators=500
+2021-06-15 13:52:18,932:INFO:n_jobs=6
+2021-06-15 13:52:18,932:INFO:max_features=None
+2021-06-15 13:52:18,932:INFO:start_id=None
+2021-06-15 13:52:18,932:INFO:stop_id=None
+2021-06-15 13:52:18,932:INFO:parallel_tasks=1
+2021-06-15 13:52:18,932:INFO:vary_samples=False
+2021-06-15 13:52:18,932:INFO:Starting [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 13:52:19,410:INFO:0.4773221s taken for [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 13:53:40,887:INFO:mode=CREATE
+2021-06-15 13:53:40,888:INFO:cv=10
+2021-06-15 13:53:40,888:INFO:n_estimators=500
+2021-06-15 13:53:40,888:INFO:n_jobs=6
+2021-06-15 13:53:40,888:INFO:max_features=None
+2021-06-15 13:53:40,888:INFO:start_id=None
+2021-06-15 13:53:40,888:INFO:stop_id=None
+2021-06-15 13:53:40,888:INFO:parallel_tasks=1
+2021-06-15 13:53:40,888:INFO:vary_samples=False
+2021-06-15 13:53:40,888:INFO:Starting [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 13:53:41,361:INFO:0.4729931s taken for [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 13:53:42,446:INFO:Running kr-vs-kp (3)
+2021-06-15 13:53:42,788:INFO:pickle load data kr-vs-kp
+2021-06-15 13:54:53,175:INFO:Running letter (6)
+2021-06-15 13:54:53,391:INFO:pickle load data letter
+2021-06-15 13:58:05,604:INFO:Running balance-scale (11)
+2021-06-15 13:58:05,817:INFO:pickle load data balance-scale
+2021-06-15 13:58:41,609:INFO:Running mfeat-factors (12)
+2021-06-15 13:58:41,820:INFO:pickle load data mfeat-factors
+2021-06-15 14:07:52,390:INFO:Running mfeat-fourier (14)
+2021-06-15 14:07:52,606:INFO:pickle load data mfeat-fourier
+2021-06-15 14:11:24,514:INFO:Running breast-w (15)
+2021-06-15 14:11:24,729:INFO:pickle load data breast-w
+2021-06-15 14:11:55,270:INFO:Running mfeat-karhunen (16)
+2021-06-15 14:11:55,485:INFO:pickle load data mfeat-karhunen
+2021-06-15 14:14:29,940:INFO:Running mfeat-morphological (18)
+2021-06-15 14:14:30,152:INFO:pickle load data mfeat-morphological
+2021-06-15 14:15:15,136:INFO:Running mfeat-zernike (22)
+2021-06-15 14:15:15,351:INFO:pickle load data mfeat-zernike
+2021-06-15 14:17:28,377:INFO:Running cmc (23)
+2021-06-15 14:17:28,595:INFO:pickle load data cmc
+2021-06-15 14:18:09,943:INFO:Running optdigits (28)
+2021-06-15 14:18:10,159:INFO:pickle load data optdigits
+2021-06-15 14:21:52,150:INFO:Running credit-approval (29)
+2021-06-15 14:21:52,366:INFO:pickle load data credit-approval
+2021-06-15 14:22:25,554:INFO:Running credit-g (31)
+2021-06-15 14:22:25,771:INFO:pickle load data credit-g
+2021-06-15 14:23:12,903:INFO:Running pendigits (32)
+2021-06-15 14:23:13,119:INFO:pickle load data pendigits
+2021-06-15 14:25:13,611:INFO:Running diabetes (37)
+2021-06-15 14:25:13,827:INFO:pickle load data diabetes
+2021-06-15 14:25:44,258:INFO:Running spambase (43)
+2021-06-15 14:25:44,473:INFO:pickle load data spambase
+2021-06-15 14:29:16,969:INFO:Running splice (45)
+2021-06-15 14:29:17,188:INFO:pickle load data splice
+2021-06-15 14:29:17,239:INFO:Going to remove the following attributes: ['Instance_name']
+2021-06-15 14:45:36,614:INFO:Running tic-tac-toe (49)
+2021-06-15 14:45:36,828:INFO:pickle load data tic-tac-toe
+2021-06-15 14:46:09,332:INFO:Running vehicle (53)
+2021-06-15 14:46:09,551:INFO:pickle load data vehicle
+2021-06-15 14:46:43,590:INFO:Running electricity (219)
+2021-06-15 14:46:43,802:INFO:pickle load data electricity
+2021-06-15 14:55:24,488:INFO:Running satimage (2074)
+2021-06-15 14:55:24,704:INFO:pickle load data satimage
+2021-06-15 14:58:41,162:INFO:Running eucalyptus (2079)
+2021-06-15 14:58:41,374:INFO:pickle load data eucalyptus
+2021-06-15 14:59:35,639:INFO:Running sick (3021)
+2021-06-15 14:59:35,851:INFO:pickle load data sick
+2021-06-15 15:00:30,875:INFO:Running vowel (3022)
+2021-06-15 15:00:31,089:INFO:pickle load data vowel
+2021-06-15 15:01:09,812:INFO:Running isolet (3481)
+2021-06-15 15:01:10,029:INFO:pickle load data isolet
+2021-06-15 17:08:03,369:INFO:mode=CREATE
+2021-06-15 17:08:03,369:INFO:cv=10
+2021-06-15 17:08:03,369:INFO:n_estimators=500
+2021-06-15 17:08:03,369:INFO:n_jobs=6
+2021-06-15 17:08:03,369:INFO:max_features=None
+2021-06-15 17:08:03,370:INFO:start_id=None
+2021-06-15 17:08:03,370:INFO:stop_id=None
+2021-06-15 17:08:03,370:INFO:parallel_tasks=1
+2021-06-15 17:08:03,370:INFO:vary_samples=False
+2021-06-15 17:08:03,370:INFO:Starting [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 17:08:03,826:INFO:0.4565644s taken for [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 17:08:04,262:INFO:Running kr-vs-kp (3)
+2021-06-15 17:08:04,481:INFO:pickle load data kr-vs-kp
+2021-06-15 17:10:28,829:INFO:mode=CREATE
+2021-06-15 17:10:28,829:INFO:cv=10
+2021-06-15 17:10:28,829:INFO:n_estimators=500
+2021-06-15 17:10:28,829:INFO:n_jobs=6
+2021-06-15 17:10:28,829:INFO:max_features=None
+2021-06-15 17:10:28,829:INFO:start_id=3022
+2021-06-15 17:10:28,829:INFO:stop_id=None
+2021-06-15 17:10:28,829:INFO:parallel_tasks=1
+2021-06-15 17:10:28,829:INFO:vary_samples=False
+2021-06-15 17:10:28,829:INFO:Starting [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 17:10:29,183:INFO:0.3540752s taken for [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 17:10:29,186:INFO:Skipping task_id=3
+2021-06-15 17:10:29,186:INFO:Skipping task_id=6
+2021-06-15 17:10:29,186:INFO:Skipping task_id=11
+2021-06-15 17:10:29,186:INFO:Skipping task_id=12
+2021-06-15 17:10:29,186:INFO:Skipping task_id=14
+2021-06-15 17:10:29,186:INFO:Skipping task_id=15
+2021-06-15 17:10:29,186:INFO:Skipping task_id=16
+2021-06-15 17:10:29,186:INFO:Skipping task_id=18
+2021-06-15 17:10:29,186:INFO:Skipping task_id=22
+2021-06-15 17:10:29,186:INFO:Skipping task_id=23
+2021-06-15 17:10:29,187:INFO:Skipping task_id=28
+2021-06-15 17:10:29,187:INFO:Skipping task_id=29
+2021-06-15 17:10:29,187:INFO:Skipping task_id=31
+2021-06-15 17:10:29,187:INFO:Skipping task_id=32
+2021-06-15 17:10:29,187:INFO:Skipping task_id=37
+2021-06-15 17:10:29,187:INFO:Skipping task_id=43
+2021-06-15 17:10:29,187:INFO:Skipping task_id=45
+2021-06-15 17:10:29,187:INFO:Skipping task_id=49
+2021-06-15 17:10:29,187:INFO:Skipping task_id=53
+2021-06-15 17:10:29,187:INFO:Skipping task_id=219
+2021-06-15 17:10:29,188:INFO:Skipping task_id=2074
+2021-06-15 17:10:29,188:INFO:Skipping task_id=2079
+2021-06-15 17:10:29,188:INFO:Skipping task_id=3021
+2021-06-15 17:10:29,618:INFO:Running vowel (3022)
+2021-06-15 17:10:29,836:INFO:pickle load data vowel
+2021-06-15 17:10:53,276:INFO:mode=CREATE
+2021-06-15 17:10:53,277:INFO:cv=10
+2021-06-15 17:10:53,277:INFO:n_estimators=500
+2021-06-15 17:10:53,277:INFO:n_jobs=6
+2021-06-15 17:10:53,277:INFO:max_features=None
+2021-06-15 17:10:53,277:INFO:start_id=3481
+2021-06-15 17:10:53,277:INFO:stop_id=None
+2021-06-15 17:10:53,277:INFO:parallel_tasks=1
+2021-06-15 17:10:53,277:INFO:vary_samples=False
+2021-06-15 17:10:53,277:INFO:Starting [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 17:10:53,634:INFO:0.3573353s taken for [get] request for the URL https://www.openml.org/api/v1/xml/study/OpenML-CC18
+2021-06-15 17:10:53,637:INFO:Skipping task_id=3
+2021-06-15 17:10:53,637:INFO:Skipping task_id=6
+2021-06-15 17:10:53,637:INFO:Skipping task_id=11
+2021-06-15 17:10:53,637:INFO:Skipping task_id=12
+2021-06-15 17:10:53,637:INFO:Skipping task_id=14
+2021-06-15 17:10:53,637:INFO:Skipping task_id=15
+2021-06-15 17:10:53,637:INFO:Skipping task_id=16
+2021-06-15 17:10:53,638:INFO:Skipping task_id=18
+2021-06-15 17:10:53,638:INFO:Skipping task_id=22
+2021-06-15 17:10:53,638:INFO:Skipping task_id=23
+2021-06-15 17:10:53,638:INFO:Skipping task_id=28
+2021-06-15 17:10:53,638:INFO:Skipping task_id=29
+2021-06-15 17:10:53,638:INFO:Skipping task_id=31
+2021-06-15 17:10:53,638:INFO:Skipping task_id=32
+2021-06-15 17:10:53,638:INFO:Skipping task_id=37
+2021-06-15 17:10:53,638:INFO:Skipping task_id=43
+2021-06-15 17:10:53,638:INFO:Skipping task_id=45
+2021-06-15 17:10:53,638:INFO:Skipping task_id=49
+2021-06-15 17:10:53,638:INFO:Skipping task_id=53
+2021-06-15 17:10:53,639:INFO:Skipping task_id=219
+2021-06-15 17:10:53,639:INFO:Skipping task_id=2074
+2021-06-15 17:10:53,639:INFO:Skipping task_id=2079
+2021-06-15 17:10:53,639:INFO:Skipping task_id=3021
+2021-06-15 17:10:53,639:INFO:Skipping task_id=3022
+2021-06-15 17:10:54,076:INFO:Running isolet (3481)
+2021-06-15 17:10:54,289:INFO:pickle load data isolet
