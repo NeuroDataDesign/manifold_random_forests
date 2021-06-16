@@ -163,3 +163,4 @@
 2021-06-16 14:28:36,546:INFO:pickle load data analcatdata_dmft
 2021-06-16 14:29:04,367:INFO:Running mnist_784 (3573)
 2021-06-16 14:29:04,580:INFO:pickle load data mnist_784
+

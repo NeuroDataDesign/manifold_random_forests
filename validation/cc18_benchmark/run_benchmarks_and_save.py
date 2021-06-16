@@ -178,6 +178,7 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
         results_dict[clf_name] = fold_probas
         # results_dict[clf_name + '_oob'] = oob_fold_probas
         print(f'{clf_name} Time: train_time={train_time:.3f}, test_time={test_time:.3f}, Cohen Kappa={cohen_kappa_score(y_test, y_proba.argmax(1)):.3f}')
+    
     # If existing data, load and append to. Else save
     if os.path.isfile(save_path) and args.mode == 'OVERWRITE':
         logging.info(f"OVERWRITING {task_name} ({task_id})")
@@ -229,7 +230,7 @@ def run_cc18(args, clfs, data_dir):
         "OpenML-CC18"
     )  # obtain the benchmark suite
 
-    folder = data_dir / f"sporf_benchmarks/results_cv{args.cv}_features={args.max_features}_optimizebranch"
+    folder = data_dir / f"sporf_benchmarks/results_cv{args.cv}_features={args.max_features}_{name}"
 
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -299,10 +300,8 @@ parser.add_argument("--n_jobs", action="store", type=int, default=6)
 # parser.add_argument("--uf_max_samples", action="store", type=float, default=1.0)
 parser.add_argument("--max_features", action="store", default=None, help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
 # parser.add_argument("--uf_poisson", action="store_true", default=False)
-parser.add_argument("--start_id", action="store", type=int, 
-    default=3481)
-parser.add_argument("--stop_id", action="store", type=int, 
-        default=None)
+parser.add_argument("--start_id", action="store", type=int, default=None)
+parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
 parser.add_argument("--vary_samples", action="store_true", default=False)
@@ -318,9 +317,6 @@ except:
         max_features = float(max_features)
     except:
         pass
-
-print(f'Max features is: {max_features}')
-
 
 clfs = [
     (
