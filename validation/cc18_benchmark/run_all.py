@@ -21,6 +21,7 @@ from sklearn.metrics import cohen_kappa_score
 from oblique_forests.sporf import ObliqueForestClassifier as ObliqueSPORF
 from oblique_forests.ensemble import RandomForestClassifier as ObliqueRF
 
+from rerf.rerfClassifier import rerfClassifier
 
 import argparse
 
@@ -320,7 +321,7 @@ except:
         pass
 
 print(f'Max features is: {max_features}')
-
+random_state = 12345
 
 clfs = [
     (
@@ -328,7 +329,9 @@ clfs = [
         RandomForestClassifier(
             n_estimators=args.n_estimators,
             max_features=max_features,
-            n_jobs=args.n_jobs)
+            n_jobs=args.n_jobs,
+            random_state=random_state
+        )
     ),
     # (
     #     "Oblique-RF",
@@ -338,12 +341,24 @@ clfs = [
     #         n_jobs=args.n_jobs)
     # ),
     (
+        "rerfSPORF",
+        rerfClassifier(
+            n_estimators=args.n_estimators,
+            max_features=max_features,
+            feature_combinations=1.5,
+            n_jobs=args.n_jobs,
+            random_state=random_state
+        )
+    )
+    (
         "SPORF",
         ObliqueSPORF(
             n_estimators=args.n_estimators,
             max_features=max_features,
             feature_combinations = 1.5,
-            n_jobs=args.n_jobs)
+            n_jobs=args.n_jobs,
+            random_state=random_state
+        )
     ),
 ]
 
