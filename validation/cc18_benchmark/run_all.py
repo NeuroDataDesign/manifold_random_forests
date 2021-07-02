@@ -230,7 +230,7 @@ def run_cc18(args, clfs, data_dir):
         "OpenML-CC18"
     )  # obtain the benchmark suite
 
-    folder = data_dir / f"sporf_benchmarks/results_cv{args.cv}_features={args.max_features}_optimizebranch"
+    folder = data_dir / f"sporf_benchmarks/rerf/results_cv{args.cv}_features={args.max_features}"
 
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -294,14 +294,14 @@ parser = argparse.ArgumentParser(description="Run CC18 dataset.")
 parser.add_argument("--mode", action="store", default="CREATE", choices=["OVERWRITE", "CREATE", "APPEND"])
 parser.add_argument("--cv", action="store", type=int, default=10)
 parser.add_argument("--n_estimators", action="store", type=int, default=500)
-parser.add_argument("--n_jobs", action="store", type=int, default=6)
+parser.add_argument("--n_jobs", action="store", type=int, default=12)
 # parser.add_argument("--uf_kappa", action="store", type=float, default=None)
 # parser.add_argument("--uf_construction_prop", action="store", type=float, default=0.63)
 # parser.add_argument("--uf_max_samples", action="store", type=float, default=1.0)
 parser.add_argument("--max_features", action="store", default=None, help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
 # parser.add_argument("--uf_poisson", action="store_true", default=False)
 parser.add_argument("--start_id", action="store", type=int, 
-    default=3481)
+    default=None)
 parser.add_argument("--stop_id", action="store", type=int, 
         default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
