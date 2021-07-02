@@ -324,15 +324,15 @@ print(f'Max features is: {max_features}')
 random_state = 12345
 
 clfs = [
-    (
-        "RF",
-        RandomForestClassifier(
-            n_estimators=args.n_estimators,
-            max_features=max_features,
-            n_jobs=args.n_jobs,
-            random_state=random_state
-        )
-    ),
+    # (
+    #     "RF",
+    #     RandomForestClassifier(
+    #         n_estimators=args.n_estimators,
+    #         max_features=max_features,
+    #         n_jobs=args.n_jobs,
+    #         random_state=random_state
+    #     )
+    # ),
     # (
     #     "Oblique-RF",
     #     ObliqueRF(
@@ -349,17 +349,17 @@ clfs = [
             n_jobs=args.n_jobs,
             random_state=random_state
         )
-    )
-    (
-        "SPORF",
-        ObliqueSPORF(
-            n_estimators=args.n_estimators,
-            max_features=max_features,
-            feature_combinations = 1.5,
-            n_jobs=args.n_jobs,
-            random_state=random_state
-        )
     ),
+    # (
+    #     "SPORF",
+    #     ObliqueSPORF(
+    #         n_estimators=args.n_estimators,
+    #         max_features=max_features,
+    #         feature_combinations = 1.5,
+    #         n_jobs=args.n_jobs,
+    #         random_state=random_state
+    #     )
+    # ),
 ]
 
 
