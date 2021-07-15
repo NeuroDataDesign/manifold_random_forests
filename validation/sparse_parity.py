@@ -37,7 +37,7 @@ def test_rf(n, reps, n_estimators):
         clf = RF(n_estimators=n_estimators)
 
         import yep
-        yep.start(f'rf_fit_sparse_parity{n}.prof')
+        yep.start(f'profiling/rf_fit_sparse_parity{n}.prof')
         clf.fit(X_train, y_train)
         yep.stop()
         
@@ -102,7 +102,7 @@ def test_sporf(n, reps, n_estimators, feature_combinations, max_features):
                     n_jobs=-1)
 
         import yep
-        yep.start(f'cysporf_fit_sparse_parity{n}.prof')
+        yep.start(f'profiling/cysporf_fit_sparse_parity{n}.prof')
         clf.fit(X_train, y_train)
         yep.stop()
         preds[i] = clf.predict(X_test)
@@ -128,8 +128,8 @@ def main():
     
     np.random.seed(0)
     for n in ns:
-        acc = test_rf(n, reps, n_estimators)
-        print(acc)
+        # acc = test_rf(n, reps, n_estimators)
+        # print(acc)
 
         # acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
         # print(acc)

@@ -77,7 +77,7 @@ def test_of(n, reps, n_estimators, feature_combinations, max_features):
 
         # Profile fitting
         import yep
-        yep.start(f'cysporf_fit_orthant{n}.prof')
+        yep.start(f'profiling/cysporf_fit_orthant{n}.prof')
         clf.fit(X_train, y_train)
         yep.stop()
 
