@@ -32,6 +32,8 @@ from scipy.sparse import issparse
 from scipy.sparse import csc_matrix
 from scipy.sparse import csr_matrix
 
+from cython.operator cimport dereference as deref
+
 # from ._tree cimport TreeBuilder
 
 from ._utils cimport Stack

@@ -134,6 +134,15 @@ def test_sample_proj_mat():
     assert any([splitter.proj_mat_indices[i].size() > 0 
                 for i in range(splitter.proj_mat_indices.size())])
 
+    assert all([splitter.proj_mat[i][j] == 0 
+                for j in range(n_features) 
+                for i in range(max_features)])
+
+    splitter.sample_proj_mat(splitter.proj_mat)
+    assert any([splitter.proj_mat[i][j] != 0 
+                for j in range(n_features) 
+                for i in range(max_features)])
+
 
 def test_node_reset():
     X = DATASETS["toy"]["X"]
@@ -166,6 +175,9 @@ def test_node_reset():
                 for i in range(splitter.proj_mat_weights.size())])
     assert all([splitter.proj_mat_indices[i].size() == 0 
                 for i in range(splitter.proj_mat_indices.size())])
+    assert all([splitter.proj_mat[i][j] == 0 
+                for j in range(n_features) 
+                for i in range(max_features)])
 
 
 def test_node_impurity():
@@ -241,6 +253,11 @@ def test_node_split():
                for i in range(proj_vec_weights.size()))
     assert all(proj_vec_indices[i] == splitter.proj_mat_indices[split.feature][i]
                for i in range(proj_vec_indices.size()))
+
+    # Validate split proj_vec matches a vector in splitter.proj_mat
+    assert split.proj_vec != NULL
+    assert all([split.proj_vec[i] == splitter.proj_mat[split.feature][i] 
+                for i in range(n_features)])
 
 
 def test_node_value():
