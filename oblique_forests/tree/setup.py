@@ -50,7 +50,7 @@ def configuration(parent_package="", top_path=None):  # noqa
                     extra_compile_args=["-O3"],
     )
 
-    config.add_subpackage("tests")
+    # config.add_subpackage("tests")
     config.add_data_files("_splitter.pxd")
     config.add_data_files("_tree.pxd")
 
