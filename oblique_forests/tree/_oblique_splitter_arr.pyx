@@ -21,6 +21,7 @@ from libc.stdio cimport printf
 # from scipy.sparse import csc_matrixfrom ._criterion cimport Criterion
 # from scipy.sparse import csc_matrix
 
+from cython.operator cimport dereference as deref
 from cython.parallel import prange
 
 from ._utils cimport log

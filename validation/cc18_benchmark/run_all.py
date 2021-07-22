@@ -54,7 +54,6 @@ def stratify_samplesizes(y, block_lengths):
     class_idxs = [np.where(y==i)[0] for i in clss]
 
     sort_idxs = []
-
     prior_idxs = np.zeros(len(clss)).astype(int)
     for n in block_lengths:
         get_idxs = np.rint((n - len(clss)) * ratios).astype(int) + 1
@@ -300,10 +299,8 @@ parser.add_argument("--n_jobs", action="store", type=int, default=12)
 # parser.add_argument("--uf_max_samples", action="store", type=float, default=1.0)
 parser.add_argument("--max_features", action="store", default=None, help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
 # parser.add_argument("--uf_poisson", action="store_true", default=False)
-parser.add_argument("--start_id", action="store", type=int, 
-    default=None)
-parser.add_argument("--stop_id", action="store", type=int, 
-        default=None)
+parser.add_argument("--start_id", action="store", type=int, default=None)
+parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
 parser.add_argument("--vary_samples", action="store_true", default=False)

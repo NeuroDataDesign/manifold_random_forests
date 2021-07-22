@@ -40,4 +40,5 @@ cover
 __pycache__
 
 # Profiling
+profiling/
 *.prof

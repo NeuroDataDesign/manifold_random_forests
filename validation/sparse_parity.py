@@ -26,7 +26,7 @@ def load_data(n):
     
     return X_train, y_train, X_test, y_test
 
-def test_rf(n, reps, n_estimators):
+def test_rf(n, reps, n_estimators, max_features):
 
     preds = np.zeros((reps, 10000))
     acc = np.zeros(reps)
@@ -34,7 +34,7 @@ def test_rf(n, reps, n_estimators):
 
         X_train, y_train, X_test, y_test = load_data(n)
 
-        clf = RF(n_estimators=n_estimators)
+        clf = RF(n_estimators=n_estimators, max_features=max_features)
 
         import yep
         yep.start(f'profiling/rf_fit_sparse_parity{n}.prof')
@@ -60,8 +60,10 @@ def test_rerf(n, reps, n_estimators, feature_combinations, max_features):
                    feature_combinations=feature_combinations,
                    max_features=max_features)
 
+        import yep
+        yep.start(f'profiling/rerf_fit_sparse_parity{n}.prof')
         clf.fit(X_train, y_train)
-        
+        yep.stop()
         preds[i] = clf.predict(X_test)
         acc[i] = np.sum(preds[i] == y_test) / len(y_test)
 
@@ -123,16 +125,15 @@ def main():
     # Tree parameters
     n_estimators = 100
     feature_combinations = 2 
-    max_features = None
-    max_features_pysporf = 1.0
+    max_features = 1.0
     
     np.random.seed(0)
     for n in ns:
         # acc = test_rf(n, reps, n_estimators)
         # print(acc)
 
-        # acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
-        # print(acc)
+        acc = test_rerf(n, reps, n_estimators, feature_combinations, max_features)
+        print(acc)
 
         acc = test_sporf(n, reps, n_estimators, feature_combinations, max_features)
         print(acc)

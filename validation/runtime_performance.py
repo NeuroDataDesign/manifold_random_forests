@@ -31,7 +31,7 @@ def load_data(n, data_path, exp_name):
 
 def main():
     logging.basicConfig(
-        filename='runtime_performance.log', 
+        filename=Path(__file__).parents[0] / "runtime_performance.log", 
         format="%(asctime)s:%(levelname)s:%(message)s",
         level=logging.INFO
     )
