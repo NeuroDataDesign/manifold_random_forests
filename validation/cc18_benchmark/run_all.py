@@ -354,7 +354,7 @@ clfs = [
 
 
 data_dir = Path('/mnt/ssd3/ronan/')
-data_dir = Path('/home/adam2392/Downloads/')
+data_dir = Path('/home/adam2392/Downloads/cysporf_vs_rerf_vs_rf')
 run_cc18(args, clfs, data_dir, random_state=random_state)
 # python run_all.py --mode CREATE --n_jobs 45 --max_features sqrt --stop_id 29 --honest_prior ignore --uf_kappa 1.5
 # python run_all.py --mode CREATE --n_jobs 45 --max_features 0.33 --honest_prior ignore
