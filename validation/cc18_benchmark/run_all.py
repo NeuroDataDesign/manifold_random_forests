@@ -248,6 +248,7 @@ def run_cc18(args, clfs, data_dir, random_state):
         while attempts < 50:
             try:
                 task = openml.tasks.get_task(task_id)  # download the OpenML task
+                break
             except Exception as e:
                 attempts += 1
                 time.sleep(2) # Number of seconds
