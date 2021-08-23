@@ -182,9 +182,9 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
                 results_dict[f"{clf_name}_metadata"]["test_times"].append(test_time)
 
             fold_probas.append(probas_vs_sample_sizes)
-
+            print(f'{clf_name} Time: train_time={train_time:.3f}, test_time={test_time:.3f}, Cohen Kappa={cohen_kappa_score(y_test, y_proba.argmax(1)):.3f}')
+        
         results_dict[clf_name] = fold_probas
-        print(f'{clf_name} Time: train_time={train_time:.3f}, test_time={test_time:.3f}, Cohen Kappa={cohen_kappa_score(y_test, y_proba.argmax(1)):.3f}')
     # If existing data, load and append to. Else save
     if os.path.isfile(save_path) and args.mode == 'OVERWRITE':
         logging.info(f"OVERWRITING {task_name} ({task_id})")
@@ -305,7 +305,7 @@ parser.add_argument("--cv", action="store", type=int, default=10)
 parser.add_argument("--n_estimators", action="store", type=int, default=500)
 parser.add_argument("--n_jobs", action="store", type=int, default=12)
 parser.add_argument("--max_features", action="store", default='sqrt', help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
-parser.add_argument("--start_id", action="store", type=int, default=11)
+parser.add_argument("--start_id", action="store", type=int, default=13)
 parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
