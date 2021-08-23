@@ -69,7 +69,6 @@ def stratify_samplesizes(y, block_lengths):
 def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path, random_state):
     # Set up Cross validation
 
-    skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=random_state)
     n_samples, n_features = X.shape
     n_classes = len(np.unique(y))
 
@@ -146,6 +145,9 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
             results_dict[f"{clf_name}_metadata"] = {}
         results_dict[f"{clf_name}_metadata"]["train_times"] = []
         results_dict[f"{clf_name}_metadata"]["test_times"] = []
+
+        # initialize the cross-validator
+        skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=random_state)
         for train_index, test_index in skf.split(X, y):
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
@@ -242,7 +244,15 @@ def run_cc18(args, clfs, data_dir, random_state):
         os.makedirs(folder)
 
     def _run_task_helper(task_id):
-        task = openml.tasks.get_task(task_id)  # download the OpenML task
+        attempts = 0
+        while attempts < 50:
+            try:
+                task = openml.tasks.get_task(task_id)  # download the OpenML task
+            except Exception as e:
+                attempts += 1
+                time.sleep(2) # Number of seconds
+                print('Trying again...')
+
         task_name = task.get_dataset().name
 
         # if task_name in ['Fashion-MNIST', 'segment', 'Devnagari-Script',
@@ -305,7 +315,7 @@ parser.add_argument("--cv", action="store", type=int, default=10)
 parser.add_argument("--n_estimators", action="store", type=int, default=500)
 parser.add_argument("--n_jobs", action="store", type=int, default=12)
 parser.add_argument("--max_features", action="store", default='sqrt', help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
-parser.add_argument("--start_id", action="store", type=int, default=13)
+parser.add_argument("--start_id", action="store", type=int, default=15)
 parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
