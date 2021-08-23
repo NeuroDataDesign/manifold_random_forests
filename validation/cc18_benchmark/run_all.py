@@ -343,16 +343,16 @@ clfs = [
     #         max_features=max_features,
     #         n_jobs=args.n_jobs)
     # ),
-    (
-        "rerfsporf",
-        rerfClassifier(
-            n_estimators=args.n_estimators,
-            max_features=max_features,
-            feature_combinations=1.5,
-            n_jobs=args.n_jobs,
-            random_state=random_state
-        )
-    ),
+    # (
+    #     "rerfsporf",
+    #     rerfClassifier(
+    #         n_estimators=args.n_estimators,
+    #         max_features=max_features,
+    #         feature_combinations=1.5,
+    #         n_jobs=args.n_jobs,
+    #         random_state=random_state
+    #     )
+    # ),
     (
         "cysporf",
         ObliqueSPORF(
