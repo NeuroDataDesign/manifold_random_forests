@@ -6,6 +6,7 @@ import time
 from tqdm import tqdm
 import os
 from pathlib import Path
+import collections
 
 from joblib import Parallel, delayed
 
@@ -132,10 +133,6 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
     results_dict["n_features_fitted"] = n_features_fitted
     print(f'Features={n_features}, nominal={len(nominal_indices)} (After transforming={n_features_fitted})')
 
-    # Store training indices (random state insures consistent across clfs)
-    for train_index, test_index in skf.split(X, y):
-        results_dict["test_indices"].append(test_index)
-
     for clf_name, clf in clfs:
         pipeline = Pipeline(steps=[("Preprocessor", preprocessor), ("Estimator", clf)])
 
@@ -143,12 +140,16 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
         oob_fold_probas = []
         if not f"{clf_name}_metadata" in results_dict.keys():
             results_dict[f"{clf_name}_metadata"] = {}
-        results_dict[f"{clf_name}_metadata"]["train_times"] = []
-        results_dict[f"{clf_name}_metadata"]["test_times"] = []
+        results_dict[f"{clf_name}_metadata"] = collections.defaultdict(list)
+        # results_dict[f"{clf_name}_metadata"]["train_times"] = []
+        # results_dict[f"{clf_name}_metadata"]["test_times"] = []
 
         # initialize the cross-validator
         skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=random_state)
         for train_index, test_index in skf.split(X, y):
+            # Store training indices (random state insures consistent across clfs)
+            results_dict[f"{clf_name}_metadata"]["test_indices"].append(test_index)
+
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
 
