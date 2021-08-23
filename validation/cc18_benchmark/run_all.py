@@ -14,7 +14,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import cohen_kappa_score
 
@@ -98,25 +98,35 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
         "sample_sizes": sample_sizes,
     }
 
-    # Get numeric indices first
-    numeric_indices = np.delete(np.arange(X.shape[1]), nominal_indices)
+    if len(nominal_indices) == n_features:
+        print(f'Skipping task: {task_name}, {task_id} because all features are nominal')
+        return
+
+    # drop nominal indices
+    X = np.delete(X, nominal_indices, axis=1)
 
     # Numeric Preprocessing
-    numeric_transformer = SimpleImputer(strategy="median")
-
-    # Nominal preprocessing
-    nominal_transformer = Pipeline(
+    numeric_transformer = Pipeline(
         steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse=False)),
-        ]
+            ('imputer', SimpleImputer(strategy="median")),
+            ('standardizer', StandardScaler()),]
     )
 
+    # Nominal preprocessing
+    # nominal_transformer = Pipeline(
+    #     steps=[
+    #         ("imputer", SimpleImputer(strategy="most_frequent")),
+    #         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse=False)),
+    #     ]
+    # )
+    
     transformers = []
+    # Get numeric indices first
+    numeric_indices = np.delete(np.arange(X.shape[1]), nominal_indices)
     if len(numeric_indices) > 0:
         transformers += [("numeric", numeric_transformer, numeric_indices)]
-    if len(nominal_indices) > 0:
-        transformers += [("nominal", nominal_transformer, nominal_indices)]
+    # if len(nominal_indices) > 0:
+    #     transformers += [("nominal", nominal_transformer, nominal_indices)]
     preprocessor = ColumnTransformer(transformers=transformers)
 
     _, n_features_fitted = preprocessor.fit_transform(X, y).shape
@@ -235,6 +245,9 @@ def run_cc18(args, clfs, data_dir, random_state):
         task = openml.tasks.get_task(task_id)  # download the OpenML task
         task_name = task.get_dataset().name
 
+        # if task_name in ['Fashion-MNIST', 'segment', 'Devnagari-Script',
+        #                  'mnist_784']
+
         save_path = f"{folder}/{task_name}_results_dict.pkl"
         if args.mode == "OVERWRITE":
             if not os.path.isfile(save_path):
@@ -292,7 +305,7 @@ parser.add_argument("--cv", action="store", type=int, default=10)
 parser.add_argument("--n_estimators", action="store", type=int, default=500)
 parser.add_argument("--n_jobs", action="store", type=int, default=12)
 parser.add_argument("--max_features", action="store", default='sqrt', help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
-parser.add_argument("--start_id", action="store", type=int, default=4)
+parser.add_argument("--start_id", action="store", type=int, default=None)
 parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
@@ -354,7 +367,7 @@ clfs = [
 
 
 data_dir = Path('/mnt/ssd3/ronan/')
-data_dir = Path('/home/adam2392/Downloads/cysporf_vs_rf')
+data_dir = Path('/home/adam2392/Downloads/cysporf_vs_rf_without_nominal')
 run_cc18(args, clfs, data_dir, random_state=random_state)
 # python run_all.py --mode CREATE --n_jobs 45 --max_features sqrt --stop_id 29 --honest_prior ignore --uf_kappa 1.5
 # python run_all.py --mode CREATE --n_jobs 45 --max_features 0.33 --honest_prior ignore
