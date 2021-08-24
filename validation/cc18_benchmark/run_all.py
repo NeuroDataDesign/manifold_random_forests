@@ -103,7 +103,7 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
         return
 
     # get the original numerical indices
-    numeric_indices = np.delete(np.arange(X.shape[1]), nominal_indices)
+    # numeric_indices = np.delete(np.arange(X.shape[1]), nominal_indices)
 
     # drop nominal indices
     X = np.delete(X, nominal_indices, axis=1)
@@ -124,6 +124,7 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path,
     # )
     
     transformers = []
+    numeric_indices = np.arange(X.shape[1])
     # Get numeric indices first
     if len(numeric_indices) > 0:
         transformers += [("numeric", numeric_transformer, numeric_indices)]
@@ -319,7 +320,7 @@ parser.add_argument("--cv", action="store", type=int, default=10)
 parser.add_argument("--n_estimators", action="store", type=int, default=500)
 parser.add_argument("--n_jobs", action="store", type=int, default=12)
 parser.add_argument("--max_features", action="store", default='sqrt', help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
-parser.add_argument("--start_id", action="store", type=int, default=24)
+parser.add_argument("--start_id", action="store", type=int, default=None)
 parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
