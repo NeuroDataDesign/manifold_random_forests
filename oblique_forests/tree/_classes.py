@@ -300,8 +300,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
             raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
         if max_depth <= 0:
             raise ValueError("max_depth must be greater than zero. ")
-        if not (0 < max_features <= self.n_features_):
-            raise ValueError("max_features must be in (0, n_features]")
+        # if not (0 < max_features <= self.n_features_):
+        #     raise ValueError("max_features must be in (0, n_features]")
         if not isinstance(max_leaf_nodes, numbers.Integral):
             raise ValueError("max_leaf_nodes must be integral number but was "
                              "%r" % max_leaf_nodes)
