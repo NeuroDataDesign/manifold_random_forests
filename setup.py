@@ -24,7 +24,7 @@ except ImportError:
 builtins.__SKLEARN_SETUP__ = True
 
 
-DISTNAME = 'manifold_random_forests'
+DISTNAME = 'oblique_forests'
 DESCRIPTION = 'A set of python modules for machine learning and data mining'
 with open('README.md') as f:
     LONG_DESCRIPTION = f.read()
