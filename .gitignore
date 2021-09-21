@@ -29,6 +29,7 @@ cover
 *.so 
 *.cpp 
 *.c
+*.html
 
 .cache
 .pytest_cache
@@ -37,3 +38,7 @@ cover
 .vscode/
 
 __pycache__
+
+# Profiling
+profiling/
+*.prof

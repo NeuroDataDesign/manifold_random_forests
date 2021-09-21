@@ -157,3 +157,10 @@
 2021-06-15 17:10:53,639:INFO:Skipping task_id=3022
 2021-06-15 17:10:54,076:INFO:Running isolet (3481)
 2021-06-15 17:10:54,289:INFO:pickle load data isolet
+2021-06-16 14:28:03,603:INFO:Running analcatdata_authorship (3549)
+2021-06-16 14:28:03,950:INFO:pickle load data analcatdata_authorship
+2021-06-16 14:28:36,330:INFO:Running analcatdata_dmft (3560)
+2021-06-16 14:28:36,546:INFO:pickle load data analcatdata_dmft
+2021-06-16 14:29:04,367:INFO:Running mnist_784 (3573)
+2021-06-16 14:29:04,580:INFO:pickle load data mnist_784
+

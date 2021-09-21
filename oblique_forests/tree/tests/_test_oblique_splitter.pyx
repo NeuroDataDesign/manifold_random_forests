@@ -7,7 +7,8 @@ import functools
 import inspect
 import numpy as np
 cimport numpy as np
-from cython.operator cimport dereference
+from cython.operator cimport dereference as deref
+from libcpp.vector cimport vector
 np.import_array()
 
 from sklearn.utils import check_random_state
@@ -68,6 +69,9 @@ def prep_X_y(X, y):
     y = np.ascontiguousarray(y, dtype=DOUBLE)
     return X, y
 
+# =============================================================================
+# Cython-level tests
+# =============================================================================
 
 def test_init():
     X = DATASETS["toy"]["X"]
@@ -86,9 +90,14 @@ def test_init():
     cdef BaseObliqueSplitter splitter = ObliqueSplitter(criterion, max_features, 
                                                         min_samples_leaf, min_weight_leaf, 
                                                         feature_combinations, random_state)
-    assert splitter.proj_mat == NULL
+
+    assert splitter.proj_mat_weights.size() == max_features
+    assert splitter.proj_mat_indices.size() == max_features
+    assert all([splitter.proj_mat_weights[i].size() == 0
+                for i in range(splitter.proj_mat_weights.size())])
+    assert all([splitter.proj_mat_indices[i].size() == 0
+                for i in range(splitter.proj_mat_indices.size())])
     assert splitter.init(X, y, null_sample_weight) == 0
-    assert splitter.proj_mat != NULL
 
 
 def test_sample_proj_mat():
@@ -111,24 +120,19 @@ def test_sample_proj_mat():
     splitter.init(X, y, null_sample_weight)
 
     # Projection matrix of splitter initializes to all zeros
-    n_nonzeros = 0
-    for i in range(splitter.max_features):
-        for j in range(splitter.n_features):
-            if splitter.proj_mat[i][j] != 0:
-                n_nonzeros += 1
-    assert n_nonzeros == 0
+    assert all([splitter.proj_mat_weights[i].size() == 0 
+                for i in range(splitter.proj_mat_weights.size())])
+    assert all([splitter.proj_mat_indices[i].size() == 0 
+                for i in range(splitter.proj_mat_indices.size())])
 
     # Sample projections in place using proj_mat pointer
-    proj_mat = splitter.proj_mat
-    splitter.sample_proj_mat(proj_mat)
+    splitter.sample_proj_mat(splitter.proj_mat_weights, splitter.proj_mat_indices)
 
     # Projection matrix of splitter now has at least one nonzero
-    n_nonzeros = 0
-    for i in range(splitter.max_features):
-        for j in range(splitter.n_features):
-            if splitter.proj_mat[i][j] != 0:
-                n_nonzeros += 1
-    assert n_nonzeros > 0
+    assert any([splitter.proj_mat_weights[i].size() > 0 
+                for i in range(splitter.proj_mat_weights.size())])
+    assert any([splitter.proj_mat_indices[i].size() > 0 
+                for i in range(splitter.proj_mat_indices.size())])
 
 
 def test_node_reset():
@@ -152,17 +156,16 @@ def test_node_reset():
     cdef double weighted_n_node_samples
     splitter.init(X, y, null_sample_weight)
     n_node_samples = splitter.n_samples
-    splitter.sample_proj_mat(splitter.proj_mat)
+
+    splitter.sample_proj_mat(splitter.proj_mat_weights, splitter.proj_mat_indices)
 
     assert splitter.node_reset(0, n_node_samples, &weighted_n_node_samples) == 0
     assert weighted_n_node_samples == n_samples
 
-    n_nonzeros = 0
-    for i in range(splitter.max_features):
-        for j in range(splitter.n_features):
-            if splitter.proj_mat[i][j] != 0:
-                n_nonzeros += 1
-    assert n_nonzeros == 0
+    assert all([splitter.proj_mat_weights[i].size() == 0 
+                for i in range(splitter.proj_mat_weights.size())])
+    assert all([splitter.proj_mat_indices[i].size() == 0 
+                for i in range(splitter.proj_mat_indices.size())])
 
 
 def test_node_impurity():
@@ -223,9 +226,21 @@ def test_node_split():
     assert 0 <= split.improvement <= 1
     assert 0 <= split.impurity_left <= 1
     assert 0 <= split.impurity_right <= 1
-    assert split.proj_vec != NULL
-    for i in range(splitter.n_features):
-        assert split.proj_vec[i] == splitter.proj_mat[split.feature][i]
+
+    # Check that split proj_vec matches a vector in splitter.proj_mat
+    cdef vector[DTYPE_t] proj_vec_weights = deref(split.proj_vec_weights)
+    cdef vector[SIZE_t] proj_vec_indices = deref(split.proj_vec_indices)
+
+    assert proj_vec_weights.size() > 0
+    assert proj_vec_indices.size() > 0
+    assert (proj_vec_weights.size() 
+            == splitter.proj_mat_weights[split.feature].size())
+    assert (proj_vec_indices.size() 
+            == splitter.proj_mat_indices[split.feature].size())
+    assert all(proj_vec_weights[i] == splitter.proj_mat_weights[split.feature][i]
+               for i in range(proj_vec_weights.size()))
+    assert all(proj_vec_indices[i] == splitter.proj_mat_indices[split.feature][i]
+               for i in range(proj_vec_indices.size()))
 
 
 def test_node_value():

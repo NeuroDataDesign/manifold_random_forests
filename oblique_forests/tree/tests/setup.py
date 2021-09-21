@@ -10,8 +10,8 @@ def configuration(parent_package="", top_path=None):  # noqa
     if os.name == "posix":
         libraries.append("m")
     config.add_extension(
-        "_test_splitter",
-        sources=["_test_splitter.pyx"],
+        "_test_oblique_splitter",
+        sources=["_test_oblique_splitter.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],

@@ -6,6 +6,7 @@ import time
 from tqdm import tqdm
 import os
 from pathlib import Path
+import collections
 
 from joblib import Parallel, delayed
 
@@ -14,13 +15,14 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import cohen_kappa_score
 
 from oblique_forests.sporf import ObliqueForestClassifier as ObliqueSPORF
 from oblique_forests.ensemble import RandomForestClassifier as ObliqueRF
 
+from rerf.rerfClassifier import rerfClassifier
 
 import argparse
 
@@ -53,7 +55,6 @@ def stratify_samplesizes(y, block_lengths):
     class_idxs = [np.where(y==i)[0] for i in clss]
 
     sort_idxs = []
-
     prior_idxs = np.zeros(len(clss)).astype(int)
     for n in block_lengths:
         get_idxs = np.rint((n - len(clss)) * ratios).astype(int) + 1
@@ -66,10 +67,9 @@ def stratify_samplesizes(y, block_lengths):
     return sort_idxs
 
 
-def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path):
+def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path, random_state):
     # Set up Cross validation
 
-    skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=0)
     n_samples, n_features = X.shape
     n_classes = len(np.unique(y))
 
@@ -98,34 +98,43 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
         "sample_sizes": sample_sizes,
     }
 
-    # Get numeric indices first
-    numeric_indices = np.delete(np.arange(X.shape[1]), nominal_indices)
+    if len(nominal_indices) == n_features:
+        print(f'Skipping task: {task_name}, {task_id} because all features are nominal')
+        return
+
+    # get the original numerical indices
+    # numeric_indices = np.delete(np.arange(X.shape[1]), nominal_indices)
+
+    # drop nominal indices
+    X = np.delete(X, nominal_indices, axis=1)
 
     # Numeric Preprocessing
-    numeric_transformer = SimpleImputer(strategy="median")
-
-    # Nominal preprocessing
-    nominal_transformer = Pipeline(
+    numeric_transformer = Pipeline(
         steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse=False)),
-        ]
+            ('imputer', SimpleImputer(strategy="median")),
+            ('standardizer', StandardScaler()),]
     )
 
+    # Nominal preprocessing
+    # nominal_transformer = Pipeline(
+    #     steps=[
+    #         ("imputer", SimpleImputer(strategy="most_frequent")),
+    #         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse=False)),
+    #     ]
+    # )
+    
     transformers = []
+    numeric_indices = np.arange(X.shape[1])
+    # Get numeric indices first
     if len(numeric_indices) > 0:
         transformers += [("numeric", numeric_transformer, numeric_indices)]
-    if len(nominal_indices) > 0:
-        transformers += [("nominal", nominal_transformer, nominal_indices)]
+    # if len(nominal_indices) > 0:
+    #     transformers += [("nominal", nominal_transformer, nominal_indices)]
     preprocessor = ColumnTransformer(transformers=transformers)
 
     _, n_features_fitted = preprocessor.fit_transform(X, y).shape
     results_dict["n_features_fitted"] = n_features_fitted
     print(f'Features={n_features}, nominal={len(nominal_indices)} (After transforming={n_features_fitted})')
-
-    # Store training indices (random state insures consistent across clfs)
-    for train_index, test_index in skf.split(X, y):
-        results_dict["test_indices"].append(test_index)
 
     for clf_name, clf in clfs:
         pipeline = Pipeline(steps=[("Preprocessor", preprocessor), ("Estimator", clf)])
@@ -134,9 +143,16 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
         oob_fold_probas = []
         if not f"{clf_name}_metadata" in results_dict.keys():
             results_dict[f"{clf_name}_metadata"] = {}
-        results_dict[f"{clf_name}_metadata"]["train_times"] = []
-        results_dict[f"{clf_name}_metadata"]["test_times"] = []
+        results_dict[f"{clf_name}_metadata"] = collections.defaultdict(list)
+        # results_dict[f"{clf_name}_metadata"]["train_times"] = []
+        # results_dict[f"{clf_name}_metadata"]["test_times"] = []
+
+        # initialize the cross-validator
+        skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=random_state)
         for train_index, test_index in skf.split(X, y):
+            # Store training indices (random state insures consistent across clfs)
+            results_dict[f"{clf_name}_metadata"]["test_indices"].append(test_index)
+
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
 
@@ -146,7 +162,6 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
                 y_train = y_train[stratified_sort]
 
             probas_vs_sample_sizes = []
-            oob_probas_vs_sample_sizes = []
 
             for n_samples in sample_sizes:
                 start_time = time.time()
@@ -173,11 +188,9 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
                 results_dict[f"{clf_name}_metadata"]["test_times"].append(test_time)
 
             fold_probas.append(probas_vs_sample_sizes)
-            # oob_fold_probas.append(oob_probas_vs_sample_sizes)
-
+            print(f'{clf_name} Time: train_time={train_time:.3f}, test_time={test_time:.3f}, Cohen Kappa={cohen_kappa_score(y_test, y_proba.argmax(1)):.3f}')
+        
         results_dict[clf_name] = fold_probas
-        # results_dict[clf_name + '_oob'] = oob_fold_probas
-        print(f'{clf_name} Time: train_time={train_time:.3f}, test_time={test_time:.3f}, Cohen Kappa={cohen_kappa_score(y_test, y_proba.argmax(1)):.3f}')
     # If existing data, load and append to. Else save
     if os.path.isfile(save_path) and args.mode == 'OVERWRITE':
         logging.info(f"OVERWRITING {task_name} ({task_id})")
@@ -215,7 +228,7 @@ def train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
         pickle.dump(results_dict, f)
 
 
-def run_cc18(args, clfs, data_dir):
+def run_cc18(args, clfs, data_dir, random_state):
     logging.basicConfig(
         filename="run_all.log",
         format="%(asctime)s:%(levelname)s:%(message)s",
@@ -229,13 +242,26 @@ def run_cc18(args, clfs, data_dir):
         "OpenML-CC18"
     )  # obtain the benchmark suite
 
-    folder = data_dir / f"sporf_benchmarks/results_cv{args.cv}_features={args.max_features}"
+    folder = data_dir / f"sporf_benchmarks/rerf/results_cv{args.cv}_features={args.max_features}"
+
     if not os.path.exists(folder):
         os.makedirs(folder)
 
     def _run_task_helper(task_id):
-        task = openml.tasks.get_task(task_id)  # download the OpenML task
+        attempts = 0
+        while attempts < 50:
+            try:
+                task = openml.tasks.get_task(task_id)  # download the OpenML task
+                break
+            except Exception as e:
+                attempts += 1
+                time.sleep(2) # Number of seconds
+                print('Trying again...')
+
         task_name = task.get_dataset().name
+
+        # if task_name in ['Fashion-MNIST', 'segment', 'Devnagari-Script',
+        #                  'mnist_784']
 
         save_path = f"{folder}/{task_name}_results_dict.pkl"
         if args.mode == "OVERWRITE":
@@ -255,7 +281,7 @@ def run_cc18(args, clfs, data_dir):
             "nominal", [task.target_name]
         )
         try:
-            train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path)
+            train_test(X, y, task_name, task_id, nominal_indices, args, clfs, save_path, random_state=random_state)
         except Exception as e:
             print(f"Test {task_name} ({task_id}) Failed | X.shape={X.shape} | {len(nominal_indices)} nominal indices")
             print(e)
@@ -292,16 +318,10 @@ parser = argparse.ArgumentParser(description="Run CC18 dataset.")
 parser.add_argument("--mode", action="store", default="CREATE", choices=["OVERWRITE", "CREATE", "APPEND"])
 parser.add_argument("--cv", action="store", type=int, default=10)
 parser.add_argument("--n_estimators", action="store", type=int, default=500)
-parser.add_argument("--n_jobs", action="store", type=int, default=6)
-# parser.add_argument("--uf_kappa", action="store", type=float, default=None)
-# parser.add_argument("--uf_construction_prop", action="store", type=float, default=0.63)
-# parser.add_argument("--uf_max_samples", action="store", type=float, default=1.0)
-parser.add_argument("--max_features", action="store", default=None, help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
-# parser.add_argument("--uf_poisson", action="store_true", default=False)
-parser.add_argument("--start_id", action="store", type=int, 
-    default=3481)
-parser.add_argument("--stop_id", action="store", type=int, 
-        default=None)
+parser.add_argument("--n_jobs", action="store", type=int, default=12)
+parser.add_argument("--max_features", action="store", default='sqrt', help="Either an integer, float, or string in {'sqrt', 'log2'}. Default uses all features.")
+parser.add_argument("--start_id", action="store", type=int, default=None)
+parser.add_argument("--stop_id", action="store", type=int, default=None)
 # parser.add_argument("--honest_prior", action="store", default="ignore", choices=["ignore", "uniform", "empirical"])
 parser.add_argument("--parallel_tasks", action="store", default=1, type=int)
 parser.add_argument("--vary_samples", action="store_true", default=False)
@@ -318,13 +338,18 @@ except:
     except:
         pass
 
+print(f'Max features is: {max_features}')
+random_state = 12345
+
 clfs = [
     (
-        "RF",
+        "rf",
         RandomForestClassifier(
             n_estimators=args.n_estimators,
             max_features=max_features,
-            n_jobs=args.n_jobs)
+            n_jobs=args.n_jobs,
+            random_state=random_state
+        )
     ),
     # (
     #     "Oblique-RF",
@@ -333,20 +358,32 @@ clfs = [
     #         max_features=max_features,
     #         n_jobs=args.n_jobs)
     # ),
+    # (
+    #     "rerfsporf",
+    #     rerfClassifier(
+    #         n_estimators=args.n_estimators,
+    #         max_features=max_features,
+    #         feature_combinations=1.5,
+    #         n_jobs=args.n_jobs,
+    #         random_state=random_state
+    #     )
+    # ),
     (
-        "SPORF",
+        "cysporf",
         ObliqueSPORF(
             n_estimators=args.n_estimators,
             max_features=max_features,
             feature_combinations = 1.5,
-            n_jobs=args.n_jobs)
+            n_jobs=args.n_jobs,
+            random_state=random_state
+        )
     ),
 ]
 
 
 data_dir = Path('/mnt/ssd3/ronan/')
-data_dir = Path('/home/adam2392/Downloads/')
-run_cc18(args, clfs, data_dir)
+data_dir = Path('/home/adam2392/Downloads/cysporf_vs_rf_without_nominal')
+run_cc18(args, clfs, data_dir, random_state=random_state)
 # python run_all.py --mode CREATE --n_jobs 45 --max_features sqrt --stop_id 29 --honest_prior ignore --uf_kappa 1.5
 # python run_all.py --mode CREATE --n_jobs 45 --max_features 0.33 --honest_prior ignore
 # python run_all.py --mode CREATE --n_jobs 25 --max_features 0.33 --stop_id 220 --honest_prior ignore --vary_samples --parallel_tasks 20 --cv 5
